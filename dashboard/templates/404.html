@@ -1,0 +1,24 @@
+{% extends "base.html" %}
+
+{% block title %}Pagina Non Trovata - MKT SIM{% endblock %}
+
+{% block content %}
+<div class="container mt-5">
+    <div class="row">
+        <div class="col-md-8 offset-md-2 text-center">
+            <div class="card shadow">
+                <div class="card-body">
+                    <h1 class="display-1 text-danger">404</h1>
+                    <h2 class="mb-4">Pagina Non Trovata</h2>
+                    <p class="lead">La pagina che stai cercando non esiste o è stata spostata.</p>
+                    <hr>
+                    <p>Verifica l'URL o torna alla dashboard per continuare la navigazione.</p>
+                    <a href="{{ url_for('index') }}" class="btn btn-primary mt-3">
+                        <i class="fas fa-home me-2"></i>Torna alla Dashboard
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

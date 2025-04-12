@@ -1,0 +1,82 @@
+{
+    "data_collection": {
+        "last_update": null,
+        "symbols": [],
+        "start_date": null,
+        "end_date": null
+    },
+    "market_simulation": {
+        "last_update": "2025-04-07T01:32:52.729758",
+        "status": "completed",
+        "results": {
+            "timestamp": "2025-04-07T01:32:52.729605",
+            "num_agents": 5,
+            "strategy": "trend_following",
+            "initial_capital": 100000.0,
+            "agents_performance": [
+                {
+                    "id": 0,
+                    "initial_capital": 100000.0,
+                    "current_value": 100000.0,
+                    "absolute_return": 0.0,
+                    "percentage_return": 0.0,
+                    "transactions": 0,
+                    "strategy": "TrendFollowingStrategy"
+                },
+                {
+                    "id": 1,
+                    "initial_capital": 100000.0,
+                    "current_value": 100000.0,
+                    "absolute_return": 0.0,
+                    "percentage_return": 0.0,
+                    "transactions": 0,
+                    "strategy": "TrendFollowingStrategy"
+                },
+                {
+                    "id": 2,
+                    "initial_capital": 100000.0,
+                    "current_value": 100000.0,
+                    "absolute_return": 0.0,
+                    "percentage_return": 0.0,
+                    "transactions": 0,
+                    "strategy": "TrendFollowingStrategy"
+                },
+                {
+                    "id": 3,
+                    "initial_capital": 100000.0,
+                    "current_value": 100000.0,
+                    "absolute_return": 0.0,
+                    "percentage_return": 0.0,
+                    "transactions": 0,
+                    "strategy": "TrendFollowingStrategy"
+                },
+                {
+                    "id": 4,
+                    "initial_capital": 100000.0,
+                    "current_value": 100000.0,
+                    "absolute_return": 0.0,
+                    "percentage_return": 0.0,
+                    "transactions": 0,
+                    "strategy": "TrendFollowingStrategy"
+                }
+            ],
+            "transactions_count": 0
+        },
+        "error": "'MonitoredSimulationManager' object has no attribute 'websocket_manager'"
+    },
+    "neural_network": {
+        "last_update": null,
+        "status": "idle",
+        "model_info": null
+    },
+    "self_play": {
+        "last_update": null,
+        "status": "idle",
+        "results": null
+    },
+    "predictions": {
+        "last_update": null,
+        "status": "idle",
+        "results": null
+    }
+}

@@ -1,0 +1,55 @@
+{% extends "base.html" %}
+
+{% block title %}Dati Disponibili{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <h2>Dati Disponibili</h2>
+    <p class="lead">Visualizza i dati storici disponibili per ogni simbolo.</p>
+    
+    {% if data_files %}
+    <div class="row">
+        {% for data in data_files %}
+        <div class="col-md-6 mb-4">
+            <div class="card">
+                <div class="card-header">
+                    <h5>{{ data.symbol }}</h5>
+                </div>
+                <div class="card-body">
+                    <div class="mb-3">
+                        <h6>Periodo</h6>
+                        <p>Da: {{ data.start_date }} a: {{ data.end_date }}</p>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <h6>Statistiche</h6>
+                        <ul class="list-group">
+                            <li class="list-group-item d-flex justify-content-between">
+                                <span>Numero di righe:</span>
+                                <span>{{ data.rows }}</span>
+                            </li>
+                            <li class="list-group-item d-flex justify-content-between">
+                                <span>Ultimo prezzo:</span>
+                                <span>{{ data.last_price }}</span>
+                            </li>
+                        </ul>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <h6>Anteprima Dati</h6>
+                        <div class="table-responsive">
+                            {{ data.preview | safe }}
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+    {% else %}
+    <div class="alert alert-info">
+        Nessun dato disponibile. Vai alla pagina di <a href="{{ url_for('data_collection') }}">Raccolta Dati</a> per scaricare i dati.
+    </div>
+    {% endif %}
+</div>
+{% endblock %} 

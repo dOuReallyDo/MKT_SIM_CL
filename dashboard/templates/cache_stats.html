@@ -1,0 +1,212 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<div class="container-fluid">
+    <h1 class="mt-4 mb-4">Statistiche della Cache</h1>
+    
+    <div class="row mb-4">
+        <div class="col-lg-12">
+            <div class="card">
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <h5 class="card-title mb-0">Stato Corrente della Cache</h5>
+                    <button id="refresh-stats-btn" class="btn btn-primary btn-sm">
+                        <i class="fas fa-sync-alt"></i> Aggiorna
+                    </button>
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-md-3">
+                            <div class="card text-center">
+                                <div class="card-body">
+                                    <h6 class="card-subtitle mb-2 text-muted">Elementi in Memoria</h6>
+                                    <h2 id="memory-items-count">-</h2>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="col-md-3">
+                            <div class="card text-center">
+                                <div class="card-body">
+                                    <h6 class="card-subtitle mb-2 text-muted">Elementi su Disco</h6>
+                                    <h2 id="disk-items-count">-</h2>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="col-md-3">
+                            <div class="card text-center">
+                                <div class="card-body">
+                                    <h6 class="card-subtitle mb-2 text-muted">Dimensione Cache</h6>
+                                    <h2 id="disk-size-mb">-</h2>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="col-md-3">
+                            <div class="card text-center">
+                                <div class="card-body">
+                                    <h6 class="card-subtitle mb-2 text-muted">Azioni</h6>
+                                    <button id="clear-cache-btn" class="btn btn-danger">
+                                        <i class="fas fa-trash"></i> Svuota Cache
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="row">
+        <div class="col-lg-12">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="card-title">Utilizzo della Cache</h5>
+                </div>
+                <div class="card-body">
+                    <div id="cache-chart" style="height: 300px;"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="row mt-4">
+        <div class="col-lg-12">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="card-title">Informazioni sulla Cache</h5>
+                </div>
+                <div class="card-body">
+                    <p>Il sistema utilizza una cache a due livelli:</p>
+                    <ul>
+                        <li><strong>Cache in Memoria</strong>: Fornisce accesso rapido ai dati più recenti e più frequentemente utilizzati.</li>
+                        <li><strong>Cache su Disco</strong>: Persiste i dati anche in caso di riavvio dell'applicazione.</li>
+                    </ul>
+                    <p>I dati vengono salvati in cache con un TTL (Time To Live) che varia in base al tipo di dato:</p>
+                    <ul>
+                        <li>Dati di mercato: 15 minuti</li>
+                        <li>Risultati delle simulazioni: 60 minuti</li>
+                        <li>Configurazioni: 24 ore</li>
+                    </ul>
+                    <p>La cache viene pulita automaticamente ogni 5 minuti per rimuovere gli elementi scaduti.</p>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Chart.js per i grafici -->
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        // Elementi DOM
+        const memoryItemsCount = document.getElementById('memory-items-count');
+        const diskItemsCount = document.getElementById('disk-items-count');
+        const diskSizeMb = document.getElementById('disk-size-mb');
+        const refreshStatsBtn = document.getElementById('refresh-stats-btn');
+        const clearCacheBtn = document.getElementById('clear-cache-btn');
+        
+        // Grafico
+        let cacheChart = null;
+        
+        // Carica le statistiche all'avvio
+        loadCacheStats();
+        
+        // Gestisce il click sul pulsante di aggiornamento
+        refreshStatsBtn.addEventListener('click', function() {
+            loadCacheStats();
+        });
+        
+        // Gestisce il click sul pulsante di pulizia
+        clearCacheBtn.addEventListener('click', function() {
+            if (confirm('Sei sicuro di voler svuotare completamente la cache?')) {
+                clearCache();
+            }
+        });
+        
+        // Funzione per caricare le statistiche
+        function loadCacheStats() {
+            fetch('/cache/stats')
+                .then(response => response.json())
+                .then(data => {
+                    // Aggiorna i contatori
+                    memoryItemsCount.textContent = data.memory_items_count;
+                    diskItemsCount.textContent = data.disk_items_count;
+                    diskSizeMb.textContent = data.disk_size_mb + ' MB';
+                    
+                    // Aggiorna il grafico
+                    updateCacheChart(data);
+                })
+                .catch(error => {
+                    console.error('Errore nel caricamento delle statistiche:', error);
+                });
+        }
+        
+        // Funzione per svuotare la cache
+        function clearCache() {
+            fetch('/cache/clear', {
+                method: 'POST'
+            })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        alert('Cache svuotata con successo');
+                        loadCacheStats();
+                    } else {
+                        alert('Errore nello svuotamento della cache');
+                    }
+                })
+                .catch(error => {
+                    console.error('Errore nello svuotamento della cache:', error);
+                    alert('Errore nello svuotamento della cache: ' + error.message);
+                });
+        }
+        
+        // Funzione per aggiornare il grafico della cache
+        function updateCacheChart(data) {
+            const ctx = document.getElementById('cache-chart').getContext('2d');
+            
+            // Distrugge il grafico precedente se esiste
+            if (cacheChart) {
+                cacheChart.destroy();
+            }
+            
+            // Crea un nuovo grafico
+            cacheChart = new Chart(ctx, {
+                type: 'pie',
+                data: {
+                    labels: ['Elementi in Memoria', 'Elementi su Disco'],
+                    datasets: [{
+                        label: 'Elementi nella Cache',
+                        data: [data.memory_items_count, data.disk_items_count],
+                        backgroundColor: [
+                            'rgba(54, 162, 235, 0.7)',
+                            'rgba(255, 99, 132, 0.7)'
+                        ],
+                        borderColor: [
+                            'rgba(54, 162, 235, 1)',
+                            'rgba(255, 99, 132, 1)'
+                        ],
+                        borderWidth: 1
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: {
+                            position: 'top',
+                        },
+                        title: {
+                            display: true,
+                            text: 'Distribuzione degli Elementi nella Cache'
+                        }
+                    }
+                }
+            });
+        }
+    });
+</script>
+{% endblock %} 

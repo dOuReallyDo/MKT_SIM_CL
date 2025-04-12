@@ -1,0 +1,176 @@
+{% extends "base.html" %}
+
+{% block title %}Configurazione Simboli{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <div class="row">
+        <div class="col-md-12">
+            <div class="card">
+                <div class="card-header bg-primary text-white">
+                    <h4 class="mb-0">Configurazione Simboli</h4>
+                </div>
+                <div class="card-body">
+                    <form id="symbolsForm" method="POST" action="{{ url_for('wizard_configure_symbols') }}">
+                        <div class="mb-4">
+                            <h5>Seleziona i simboli per la simulazione</h5>
+                            <p class="text-muted">Inserisci i simboli separati da virgola (es. AAPL, MSFT, GOOGL)</p>
+                        </div>
+
+                        <div class="form-group mb-4">
+                            <label for="symbols">Simboli</label>
+                            <input type="text" class="form-control" id="symbols" name="symbols" 
+                                   value="{{ current_symbols|join(', ') if current_symbols else 'AAPL, MSFT, GOOGL, AMZN, META' }}" 
+                                   placeholder="AAPL, MSFT, GOOGL, ...">
+                            <small class="form-text text-muted">Inserisci i simboli delle azioni che vuoi includere nella simulazione.</small>
+                        </div>
+
+                        <div class="form-group mb-4">
+                            <label>Simboli Popolari</label>
+                            <div class="popular-symbols">
+                                <button type="button" class="btn btn-sm btn-outline-secondary m-1 symbol-btn" data-symbol="AAPL">AAPL</button>
+                                <button type="button" class="btn btn-sm btn-outline-secondary m-1 symbol-btn" data-symbol="MSFT">MSFT</button>
+                                <button type="button" class="btn btn-sm btn-outline-secondary m-1 symbol-btn" data-symbol="GOOGL">GOOGL</button>
+                                <button type="button" class="btn btn-sm btn-outline-secondary m-1 symbol-btn" data-symbol="AMZN">AMZN</button>
+                                <button type="button" class="btn btn-sm btn-outline-secondary m-1 symbol-btn" data-symbol="META">META</button>
+                                <button type="button" class="btn btn-sm btn-outline-secondary m-1 symbol-btn" data-symbol="TSLA">TSLA</button>
+                                <button type="button" class="btn btn-sm btn-outline-secondary m-1 symbol-btn" data-symbol="NVDA">NVDA</button>
+                                <button type="button" class="btn btn-sm btn-outline-secondary m-1 symbol-btn" data-symbol="JPM">JPM</button>
+                                <button type="button" class="btn btn-sm btn-outline-secondary m-1 symbol-btn" data-symbol="V">V</button>
+                                <button type="button" class="btn btn-sm btn-outline-secondary m-1 symbol-btn" data-symbol="JNJ">JNJ</button>
+                            </div>
+                        </div>
+
+                        <div class="form-group mb-4">
+                            <div class="form-check">
+                                <input class="form-check-input" type="checkbox" id="verifySymbols" name="verifySymbols" checked>
+                                <label class="form-check-label" for="verifySymbols">
+                                    Verifica disponibilità dati
+                                </label>
+                                <small class="form-text text-muted">Verifica che i dati per i simboli selezionati siano disponibili.</small>
+                            </div>
+                        </div>
+
+                        <div id="symbolsStatus" class="alert alert-info d-none">
+                            Verifica disponibilità dati in corso...
+                        </div>
+
+                        <div class="d-flex justify-content-between mt-4">
+                            <a href="{{ url_for('index') }}" class="btn btn-secondary">Annulla</a>
+                            <button type="button" id="verifyBtn" class="btn btn-info">Verifica Simboli</button>
+                            <button type="submit" class="btn btn-primary">Avanti</button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Gestione dei pulsanti dei simboli popolari
+    const symbolBtns = document.querySelectorAll('.symbol-btn');
+    const symbolsInput = document.getElementById('symbols');
+    
+    symbolBtns.forEach(btn => {
+        btn.addEventListener('click', function() {
+            const symbol = this.getAttribute('data-symbol');
+            let currentSymbols = symbolsInput.value.split(',').map(s => s.trim()).filter(s => s);
+            
+            // Aggiungi o rimuovi il simbolo
+            if (currentSymbols.includes(symbol)) {
+                currentSymbols = currentSymbols.filter(s => s !== symbol);
+                this.classList.remove('btn-secondary');
+                this.classList.add('btn-outline-secondary');
+            } else {
+                currentSymbols.push(symbol);
+                this.classList.remove('btn-outline-secondary');
+                this.classList.add('btn-secondary');
+            }
+            
+            symbolsInput.value = currentSymbols.join(', ');
+        });
+    });
+    
+    // Evidenzia i simboli già selezionati
+    function updateSelectedSymbols() {
+        const currentSymbols = symbolsInput.value.split(',').map(s => s.trim()).filter(s => s);
+        
+        symbolBtns.forEach(btn => {
+            const symbol = btn.getAttribute('data-symbol');
+            if (currentSymbols.includes(symbol)) {
+                btn.classList.remove('btn-outline-secondary');
+                btn.classList.add('btn-secondary');
+            } else {
+                btn.classList.remove('btn-secondary');
+                btn.classList.add('btn-outline-secondary');
+            }
+        });
+    }
+    
+    // Aggiorna all'avvio
+    updateSelectedSymbols();
+    
+    // Aggiorna quando l'input cambia
+    symbolsInput.addEventListener('input', updateSelectedSymbols);
+    
+    // Verifica simboli
+    document.getElementById('verifyBtn').addEventListener('click', function() {
+        const symbols = symbolsInput.value.split(',').map(s => s.trim()).filter(s => s);
+        const statusDiv = document.getElementById('symbolsStatus');
+        
+        if (symbols.length === 0) {
+            alert('Inserisci almeno un simbolo');
+            return;
+        }
+        
+        statusDiv.classList.remove('d-none', 'alert-success', 'alert-danger');
+        statusDiv.classList.add('alert-info');
+        statusDiv.textContent = 'Verifica disponibilità dati in corso...';
+        
+        // Chiamata API per verificare i dati
+        fetch('/api/check_data', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({ symbols: symbols }),
+        })
+        .then(response => response.json())
+        .then(data => {
+            let allAvailable = true;
+            let statusHtml = '<h5>Risultati verifica:</h5><ul>';
+            
+            for (const [symbol, info] of Object.entries(data)) {
+                if (info.available) {
+                    statusHtml += `<li><strong>${symbol}</strong>: Disponibile (${info.rows} righe)</li>`;
+                } else {
+                    allAvailable = false;
+                    statusHtml += `<li><strong>${symbol}</strong>: <span class="text-danger">Non disponibile</span></li>`;
+                }
+            }
+            
+            statusHtml += '</ul>';
+            
+            if (allAvailable) {
+                statusDiv.classList.remove('alert-info', 'alert-danger');
+                statusDiv.classList.add('alert-success');
+                statusHtml = '<div class="mb-2"><i class="fas fa-check-circle"></i> Tutti i simboli sono disponibili!</div>' + statusHtml;
+            } else {
+                statusDiv.classList.remove('alert-info', 'alert-success');
+                statusDiv.classList.add('alert-danger');
+                statusHtml = '<div class="mb-2"><i class="fas fa-exclamation-triangle"></i> Alcuni simboli non sono disponibili. Puoi procedere comunque o scaricare i dati dalla pagina di raccolta dati.</div>' + statusHtml;
+            }
+            
+            statusDiv.innerHTML = statusHtml;
+        })
+        .catch(error => {
+            statusDiv.classList.remove('alert-info', 'alert-success');
+            statusDiv.classList.add('alert-danger');
+            statusDiv.textContent = 'Errore durante la verifica: ' + error.message;
+        });
+    });
+});
+</script>
+{% endblock %}

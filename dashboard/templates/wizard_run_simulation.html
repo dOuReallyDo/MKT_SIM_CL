@@ -1,0 +1,83 @@
+{% extends "base.html" %}
+
+{% block title %}Esegui Simulazione - Wizard{% endblock %}
+
+{% block content %}
+<div class="container">
+    <div class="row mb-4">
+        <div class="col-md-12">
+            <nav aria-label="breadcrumb">
+                <ol class="breadcrumb">
+                    <li class="breadcrumb-item"><a href="{{ url_for('index') }}">Home</a></li>
+                    <li class="breadcrumb-item"><a href="{{ url_for('wizard_dashboard') }}">Wizard</a></li>
+                    <li class="breadcrumb-item active">Esegui Simulazione</li>
+                </ol>
+            </nav>
+            
+            <h1 class="display-4 mb-3">Esegui Simulazione</h1>
+            <p class="lead">Avvia la simulazione con la configurazione impostata.</p>
+            
+            {% with messages = get_flashed_messages(with_categories=true) %}
+                {% if messages %}
+                    {% for category, message in messages %}
+                        <div class="alert alert-{{ category }}">{{ message }}</div>
+                    {% endfor %}
+                {% endif %}
+            {% endwith %}
+            
+            <div class="card mb-4">
+                <div class="card-header bg-primary text-white">
+                    <h4 class="mb-0">Step 8: Esegui la simulazione</h4>
+                </div>
+                <div class="card-body">
+                    <h5 class="mb-3">Riepilogo della configurazione:</h5>
+                    
+                    <div class="table-responsive">
+                        <table class="table table-striped">
+                            <tbody>
+                                <tr>
+                                    <th>Simboli:</th>
+                                    <td>{{ ', '.join(config['market']['symbols']) }}</td>
+                                </tr>
+                                <tr>
+                                    <th>Periodo:</th>
+                                    <td>Dal {{ config['market']['start_date'] }} al {{ config['market']['end_date'] }}</td>
+                                </tr>
+                                <tr>
+                                    <th>Capitale iniziale:</th>
+                                    <td>${{ config['trading']['initial_capital'] }}</td>
+                                </tr>
+                                <tr>
+                                    <th>Strategia:</th>
+                                    <td>{{ config['strategies']['active_strategy'] }}</td>
+                                </tr>
+                                <tr>
+                                    <th>Numero di agenti:</th>
+                                    <td>{{ config.get('simulation', {}).get('num_agents', 5) }}</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                    
+                    <div class="alert alert-info">
+                        <i class="fas fa-info-circle"></i>
+                        La simulazione è stata avviata. Puoi monitorare il progresso in tempo reale e visualizzare i risultati nella sezione <a href="{{ url_for('reports') }}">Report</a>.
+                    </div>
+                    
+                    <form method="POST">
+                        <div class="mt-4 d-flex justify-content-between">
+                            <a href="{{ url_for('wizard_data_collection') }}" class="btn btn-secondary">Indietro</a>
+                            <button type="submit" name="run_simulation" value="1" class="btn btn-success">Avvia Simulazione</button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+            
+            <div class="progress mb-3">
+                <div class="progress-bar bg-success" role="progressbar" style="width: 100%" aria-valuenow="100" aria-valuemin="0" aria-valuemax="100">100%</div>
+            </div>
+            <p class="text-muted">Step 8 di 8</p>
+        </div>
+    </div>
+</div>
+{% endblock %} 

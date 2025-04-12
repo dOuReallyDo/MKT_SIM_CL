@@ -1,0 +1,93 @@
+{% extends "base.html" %}
+
+{% block title %}Raccolta Dati - Wizard{% endblock %}
+
+{% block content %}
+<div class="container">
+    <div class="row mb-4">
+        <div class="col-md-12">
+            <nav aria-label="breadcrumb">
+                <ol class="breadcrumb">
+                    <li class="breadcrumb-item"><a href="{{ url_for('index') }}">Home</a></li>
+                    <li class="breadcrumb-item"><a href="{{ url_for('wizard_dashboard') }}">Wizard</a></li>
+                    <li class="breadcrumb-item active">Raccolta Dati</li>
+                </ol>
+            </nav>
+            
+            <h1 class="display-4 mb-3">Raccolta Dati</h1>
+            <p class="lead">Scarica i dati storici necessari per la simulazione.</p>
+            
+            {% with messages = get_flashed_messages(with_categories=true) %}
+                {% if messages %}
+                    {% for category, message in messages %}
+                        <div class="alert alert-{{ category }}">{{ message }}</div>
+                    {% endfor %}
+                {% endif %}
+            {% endwith %}
+            
+            <div class="card mb-4">
+                <div class="card-header bg-primary text-white">
+                    <h4 class="mb-0">Step 7: Raccolta dati</h4>
+                </div>
+                <div class="card-body">
+                    <h5 class="mb-3">Dati richiesti per i simboli configurati:</h5>
+                    
+                    <div class="table-responsive">
+                        <table class="table table-striped">
+                            <thead>
+                                <tr>
+                                    <th>Simbolo</th>
+                                    <th>Stato</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for symbol in config['market']['symbols'] %}
+                                <tr>
+                                    <td>{{ symbol }}</td>
+                                    <td>
+                                        {% if symbol in available_data %}
+                                        <span class="badge bg-success">Disponibile</span>
+                                        {% else %}
+                                        <span class="badge bg-danger">Mancante</span>
+                                        {% endif %}
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                    
+                    {% if missing_data %}
+                    <div class="alert alert-warning mt-3">
+                        <i class="bi bi-exclamation-triangle"></i>
+                        Dati mancanti per i seguenti simboli: {{ ', '.join(missing_data) }}
+                    </div>
+                    {% else %}
+                    <div class="alert alert-success mt-3">
+                        <i class="bi bi-check-circle"></i>
+                        Tutti i dati sono disponibili per il periodo configurato.
+                    </div>
+                    {% endif %}
+                    
+                    <form method="POST">
+                        <div class="mt-4 d-flex justify-content-between">
+                            <a href="{{ url_for('wizard_save_config') }}" class="btn btn-secondary">Indietro</a>
+                            
+                            {% if missing_data %}
+                            <button type="submit" name="download" value="1" class="btn btn-primary">Scarica Dati Mancanti</button>
+                            {% else %}
+                            <button type="submit" class="btn btn-primary">Avanti</button>
+                            {% endif %}
+                        </div>
+                    </form>
+                </div>
+            </div>
+            
+            <div class="progress mb-3">
+                <div class="progress-bar bg-success" role="progressbar" style="width: 87.5%" aria-valuenow="87.5" aria-valuemin="0" aria-valuemax="100">87.5%</div>
+            </div>
+            <p class="text-muted">Step 7 di 8</p>
+        </div>
+    </div>
+</div>
+{% endblock %} 

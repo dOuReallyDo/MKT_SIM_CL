@@ -1,0 +1,271 @@
+{% extends "base.html" %}
+
+{% block title %}Configurazione Agenti{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <div class="row">
+        <div class="col-md-12">
+            <div class="card">
+                <div class="card-header bg-primary text-white">
+                    <h4 class="mb-0">Configurazione Agenti di Trading</h4>
+                </div>
+                <div class="card-body">
+                    <form id="agentsForm" method="POST" action="{{ url_for('wizard_configure_agents') }}">
+                        <div class="mb-4">
+                            <h5>Configura gli agenti di trading</h5>
+                            <p class="text-muted">Definisci il numero e le caratteristiche degli agenti che parteciperanno alla simulazione</p>
+                        </div>
+
+                        <div class="form-group mb-4">
+                            <label for="num_agents">Numero di Agenti</label>
+                            <input type="number" class="form-control" id="num_agents" name="num_agents" 
+                                   value="{{ num_agents if num_agents else 5 }}" min="1" max="100">
+                            <small class="form-text text-muted">Numero di agenti che parteciperanno alla simulazione</small>
+                        </div>
+
+                        <div class="form-group mb-4">
+                            <label>Numero Predefinito</label>
+                            <div class="btn-group d-flex flex-wrap" role="group">
+                                <button type="button" class="btn btn-sm btn-outline-secondary m-1 agents-btn" data-agents="1">1 Agente</button>
+                                <button type="button" class="btn btn-sm btn-outline-secondary m-1 agents-btn" data-agents="3">3 Agenti</button>
+                                <button type="button" class="btn btn-sm btn-outline-secondary m-1 agents-btn" data-agents="5">5 Agenti</button>
+                                <button type="button" class="btn btn-sm btn-outline-secondary m-1 agents-btn" data-agents="10">10 Agenti</button>
+                                <button type="button" class="btn btn-sm btn-outline-secondary m-1 agents-btn" data-agents="20">20 Agenti</button>
+                            </div>
+                        </div>
+
+                        <div class="form-group mb-4">
+                            <div class="form-check">
+                                <input class="form-check-input" type="checkbox" id="use_mixed_strategies" name="use_mixed_strategies" 
+                                       {% if use_mixed_strategies %}checked{% endif %}>
+                                <label class="form-check-label" for="use_mixed_strategies">
+                                    Utilizza strategie miste
+                                </label>
+                                <small class="form-text text-muted">Se selezionato, gli agenti utilizzeranno strategie diverse</small>
+                            </div>
+                        </div>
+
+                        <div id="mixedStrategiesConfig" class="mb-4 {% if not use_mixed_strategies %}d-none{% endif %}">
+                            <div class="card">
+                                <div class="card-header">
+                                    <h5 class="mb-0">Distribuzione delle Strategie</h5>
+                                </div>
+                                <div class="card-body">
+                                    <p class="text-muted">Definisci la percentuale di agenti che utilizzeranno ciascuna strategia</p>
+                                    
+                                    <div class="row">
+                                        {% for strategy_id, strategy_info in strategies_info.items() %}
+                                            {% if strategy_info.status == 'implemented' %}
+                                                <div class="col-md-6 mb-3">
+                                                    <label for="strategy_pct_{{ strategy_id }}">{{ strategy_info.name }}</label>
+                                                    <div class="input-group">
+                                                        <input type="number" class="form-control strategy-pct" id="strategy_pct_{{ strategy_id }}" 
+                                                               name="strategy_pct_{{ strategy_id }}" 
+                                                               value="{{ strategy_distribution[strategy_id] if strategy_distribution and strategy_id in strategy_distribution else 20 }}" 
+                                                               min="0" max="100">
+                                                        <div class="input-group-append">
+                                                            <span class="input-group-text">%</span>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            {% endif %}
+                                        {% endfor %}
+                                    </div>
+                                    
+                                    <div class="alert alert-info mt-3">
+                                        <span id="totalPercentage">Totale: 100%</span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="form-group mb-4">
+                            <div class="form-check">
+                                <input class="form-check-input" type="checkbox" id="use_variable_capital" name="use_variable_capital" 
+                                       {% if use_variable_capital %}checked{% endif %}>
+                                <label class="form-check-label" for="use_variable_capital">
+                                    Utilizza capitale variabile
+                                </label>
+                                <small class="form-text text-muted">Se selezionato, gli agenti avranno capitali iniziali diversi</small>
+                            </div>
+                        </div>
+
+                        <div id="variableCapitalConfig" class="mb-4 {% if not use_variable_capital %}d-none{% endif %}">
+                            <div class="card">
+                                <div class="card-header">
+                                    <h5 class="mb-0">Configurazione Capitale Variabile</h5>
+                                </div>
+                                <div class="card-body">
+                                    <div class="row">
+                                        <div class="col-md-6">
+                                            <div class="form-group">
+                                                <label for="min_capital">Capitale Minimo (USD)</label>
+                                                <div class="input-group">
+                                                    <div class="input-group-prepend">
+                                                        <span class="input-group-text">$</span>
+                                                    </div>
+                                                    <input type="number" class="form-control" id="min_capital" name="min_capital" 
+                                                           value="{{ min_capital if min_capital else 50000 }}" min="1000" step="1000">
+                                                </div>
+                                            </div>
+                                        </div>
+                                        <div class="col-md-6">
+                                            <div class="form-group">
+                                                <label for="max_capital">Capitale Massimo (USD)</label>
+                                                <div class="input-group">
+                                                    <div class="input-group-prepend">
+                                                        <span class="input-group-text">$</span>
+                                                    </div>
+                                                    <input type="number" class="form-control" id="max_capital" name="max_capital" 
+                                                           value="{{ max_capital if max_capital else 150000 }}" min="1000" step="1000">
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="alert alert-info">
+                            <i class="fas fa-info-circle"></i> Con le impostazioni attuali, la simulazione utilizzerà 
+                            <strong id="agentsSummary">{{ num_agents if num_agents else 5 }} agenti</strong> 
+                            con la strategia <strong id="strategySummary">{{ active_strategy_name }}</strong>.
+                        </div>
+
+                        <div class="d-flex justify-content-between mt-4">
+                            <a href="{{ url_for('wizard_configure_strategy') }}" class="btn btn-secondary">Indietro</a>
+                            <button type="submit" class="btn btn-primary">Avanti</button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const numAgentsInput = document.getElementById('num_agents');
+    const agentsBtns = document.querySelectorAll('.agents-btn');
+    const useMixedStrategiesCheckbox = document.getElementById('use_mixed_strategies');
+    const mixedStrategiesConfig = document.getElementById('mixedStrategiesConfig');
+    const useVariableCapitalCheckbox = document.getElementById('use_variable_capital');
+    const variableCapitalConfig = document.getElementById('variableCapitalConfig');
+    const strategyPctInputs = document.querySelectorAll('.strategy-pct');
+    const totalPercentageSpan = document.getElementById('totalPercentage');
+    const agentsSummary = document.getElementById('agentsSummary');
+    const strategySummary = document.getElementById('strategySummary');
+    const minCapitalInput = document.getElementById('min_capital');
+    const maxCapitalInput = document.getElementById('max_capital');
+    
+    // Aggiorna il sommario degli agenti
+    function updateAgentsSummary() {
+        const numAgents = numAgentsInput.value;
+        const useMixedStrategies = useMixedStrategiesCheckbox.checked;
+        const useVariableCapital = useVariableCapitalCheckbox.checked;
+        
+        let summary = `${numAgents} agenti`;
+        
+        if (useMixedStrategies) {
+            summary += " con strategie miste";
+        } else {
+            summary += ` con la strategia ${strategySummary.textContent}`;
+        }
+        
+        if (useVariableCapital) {
+            const minCapital = parseInt(minCapitalInput.value).toLocaleString();
+            const maxCapital = parseInt(maxCapitalInput.value).toLocaleString();
+            summary += ` e capitale variabile ($${minCapital} - $${maxCapital})`;
+        }
+        
+        agentsSummary.textContent = summary;
+    }
+    
+    // Aggiorna il totale delle percentuali
+    function updateTotalPercentage() {
+        let total = 0;
+        strategyPctInputs.forEach(input => {
+            total += parseInt(input.value || 0);
+        });
+        
+        totalPercentageSpan.textContent = `Totale: ${total}%`;
+        
+        if (total !== 100) {
+            totalPercentageSpan.classList.add('text-danger');
+            totalPercentageSpan.classList.remove('text-success');
+        } else {
+            totalPercentageSpan.classList.add('text-success');
+            totalPercentageSpan.classList.remove('text-danger');
+        }
+    }
+    
+    // Gestione dei pulsanti del numero di agenti
+    agentsBtns.forEach(btn => {
+        btn.addEventListener('click', function() {
+            const agents = parseInt(this.getAttribute('data-agents'));
+            numAgentsInput.value = agents;
+            
+            // Evidenzia il pulsante selezionato
+            agentsBtns.forEach(b => {
+                b.classList.remove('btn-secondary');
+                b.classList.add('btn-outline-secondary');
+            });
+            
+            this.classList.remove('btn-outline-secondary');
+            this.classList.add('btn-secondary');
+            
+            updateAgentsSummary();
+        });
+    });
+    
+    // Evidenzia il pulsante del numero di agenti corrente all'avvio
+    const currentAgents = parseInt(numAgentsInput.value);
+    agentsBtns.forEach(btn => {
+        const btnAgents = parseInt(btn.getAttribute('data-agents'));
+        if (btnAgents === currentAgents) {
+            btn.classList.remove('btn-outline-secondary');
+            btn.classList.add('btn-secondary');
+        }
+    });
+    
+    // Gestione del checkbox delle strategie miste
+    useMixedStrategiesCheckbox.addEventListener('change', function() {
+        if (this.checked) {
+            mixedStrategiesConfig.classList.remove('d-none');
+        } else {
+            mixedStrategiesConfig.classList.add('d-none');
+        }
+        
+        updateAgentsSummary();
+    });
+    
+    // Gestione del checkbox del capitale variabile
+    useVariableCapitalCheckbox.addEventListener('change', function() {
+        if (this.checked) {
+            variableCapitalConfig.classList.remove('d-none');
+        } else {
+            variableCapitalConfig.classList.add('d-none');
+        }
+        
+        updateAgentsSummary();
+    });
+    
+    // Aggiorna quando il numero di agenti cambia
+    numAgentsInput.addEventListener('input', updateAgentsSummary);
+    
+    // Aggiorna quando le percentuali delle strategie cambiano
+    strategyPctInputs.forEach(input => {
+        input.addEventListener('input', updateTotalPercentage);
+    });
+    
+    // Aggiorna quando i valori del capitale variabile cambiano
+    minCapitalInput.addEventListener('input', updateAgentsSummary);
+    maxCapitalInput.addEventListener('input', updateAgentsSummary);
+    
+    // Aggiorna all'avvio
+    updateTotalPercentage();
+    updateAgentsSummary();
+});
+</script>
+{% endblock %}

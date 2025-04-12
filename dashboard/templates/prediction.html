@@ -1,0 +1,559 @@
+{% extends "base.html" %}
+
+{% block title %}Previsioni{% endblock %}
+
+{% block content %}
+<div class="container-fluid mt-4">
+    <div class="row">
+        <div class="col-md-12">
+            <div class="card">
+                <div class="card-header bg-primary text-white">
+                    <h4 class="mb-0">Previsioni con Reti Neurali</h4>
+                </div>
+                <div class="card-body">
+                    <div class="row mb-4">
+                        <div class="col-md-12">
+                            <p class="text-muted">
+                                Utilizza modelli di reti neurali per generare previsioni sui prezzi futuri dei titoli.
+                                I modelli possono essere addestrati sui dati storici e utilizzati per generare previsioni
+                                per i giorni successivi.
+                            </p>
+                        </div>
+                    </div>
+
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="card mb-4">
+                                <div class="card-header">
+                                    <h5 class="mb-0">Addestramento Modelli</h5>
+                                </div>
+                                <div class="card-body">
+                                    <form id="trainModelForm" method="POST" action="{{ url_for('train_model') }}">
+                                        <div class="form-group mb-3">
+                                            <label for="train_symbols">Simboli</label>
+                                            <select class="form-control" id="train_symbols" name="symbols" multiple required>
+                                                {% for symbol in available_symbols %}
+                                                    <option value="{{ symbol }}">{{ symbol }}</option>
+                                                {% endfor %}
+                                            </select>
+                                            <small class="form-text text-muted">Seleziona i simboli per cui addestrare i modelli</small>
+                                        </div>
+
+                                        <div class="form-group mb-3">
+                                            <label for="train_start_date">Data di Inizio</label>
+                                            <input type="date" class="form-control" id="train_start_date" name="start_date" 
+                                                   value="{{ default_start_date }}" required>
+                                        </div>
+
+                                        <div class="form-group mb-3">
+                                            <label for="train_end_date">Data di Fine</label>
+                                            <input type="date" class="form-control" id="train_end_date" name="end_date" 
+                                                   value="{{ default_end_date }}" required>
+                                        </div>
+
+                                        <div class="form-group mb-3">
+                                            <label for="model_type">Tipo di Modello</label>
+                                            <select class="form-control" id="model_type" name="model_type">
+                                                <option value="lstm">LSTM</option>
+                                                <option value="cnn">CNN</option>
+                                                <option value="transformer">Transformer</option>
+                                            </select>
+                                            <small class="form-text text-muted">Seleziona il tipo di rete neurale da utilizzare</small>
+                                        </div>
+
+                                        <div class="form-group mb-3">
+                                            <label for="sequence_length">Lunghezza Sequenza</label>
+                                            <input type="number" class="form-control" id="sequence_length" name="sequence_length" 
+                                                   value="10" min="5" max="50" required>
+                                            <small class="form-text text-muted">Numero di giorni da considerare per la previsione</small>
+                                        </div>
+
+                                        <div class="form-group mb-3">
+                                            <label for="epochs">Epoche</label>
+                                            <input type="number" class="form-control" id="epochs" name="epochs" 
+                                                   value="50" min="10" max="500" required>
+                                            <small class="form-text text-muted">Numero di epoche di addestramento</small>
+                                        </div>
+
+                                        <div class="form-group mb-3">
+                                            <label for="batch_size">Dimensione Batch</label>
+                                            <input type="number" class="form-control" id="batch_size" name="batch_size" 
+                                                   value="32" min="8" max="128" required>
+                                            <small class="form-text text-muted">Dimensione del batch per l'addestramento</small>
+                                        </div>
+
+                                        <button type="submit" class="btn btn-primary">
+                                            <i class="fas fa-brain"></i> Addestra Modelli
+                                        </button>
+                                    </form>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="col-md-6">
+                            <div class="card mb-4">
+                                <div class="card-header">
+                                    <h5 class="mb-0">Generazione Previsioni</h5>
+                                </div>
+                                <div class="card-body">
+                                    <form id="predictForm" method="POST" action="{{ url_for('generate_predictions') }}">
+                                        <div class="form-group mb-3">
+                                            <label for="predict_symbols">Simboli</label>
+                                            <select class="form-control" id="predict_symbols" name="symbols" multiple required>
+                                                {% for symbol in available_symbols %}
+                                                    <option value="{{ symbol }}">{{ symbol }}</option>
+                                                {% endfor %}
+                                            </select>
+                                            <small class="form-text text-muted">Seleziona i simboli per cui generare previsioni</small>
+                                        </div>
+
+                                        <div class="form-group mb-3">
+                                            <label for="days">Giorni da Prevedere</label>
+                                            <input type="number" class="form-control" id="days" name="days" 
+                                                   value="5" min="1" max="30" required>
+                                            <small class="form-text text-muted">Numero di giorni futuri da prevedere</small>
+                                        </div>
+
+                                        <div class="form-group mb-3">
+                                            <label for="threshold">Soglia Segnali (%)</label>
+                                            <input type="number" class="form-control" id="threshold" name="threshold" 
+                                                   value="1.0" min="0.1" max="10.0" step="0.1" required>
+                                            <small class="form-text text-muted">Soglia percentuale per generare segnali di trading</small>
+                                        </div>
+
+                                        <button type="submit" class="btn btn-success">
+                                            <i class="fas fa-chart-line"></i> Genera Previsioni
+                                        </button>
+                                    </form>
+                                </div>
+                            </div>
+
+                            <div class="card mb-4">
+                                <div class="card-header">
+                                    <h5 class="mb-0">Modelli Disponibili</h5>
+                                </div>
+                                <div class="card-body">
+                                    {% if available_models %}
+                                        <ul class="list-group">
+                                            {% for symbol, model_info in available_models.items() %}
+                                                <li class="list-group-item d-flex justify-content-between align-items-center">
+                                                    <div>
+                                                        <strong>{{ symbol }}</strong>
+                                                        <small class="text-muted d-block">{{ model_info.type }} - {{ model_info.date }}</small>
+                                                    </div>
+                                                    <span class="badge bg-primary">{{ model_info.accuracy }}%</span>
+                                                </li>
+                                            {% endfor %}
+                                        </ul>
+                                    {% else %}
+                                        <div class="alert alert-info">
+                                            <i class="fas fa-info-circle"></i> Nessun modello disponibile. Addestra i modelli per iniziare.
+                                        </div>
+                                    {% endif %}
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    {% if predictions %}
+                        <div class="row mt-4">
+                            <div class="col-md-12">
+                                <div class="card">
+                                    <div class="card-header bg-success text-white">
+                                        <h5 class="mb-0">Previsioni Generate</h5>
+                                    </div>
+                                    <div class="card-body">
+                                        <ul class="nav nav-tabs" id="predictionTabs" role="tablist">
+                                            {% for symbol in predictions.keys() %}
+                                                <li class="nav-item" role="presentation">
+                                                    <button class="nav-link {% if loop.first %}active{% endif %}" 
+                                                            id="tab-{{ symbol }}" 
+                                                            data-bs-toggle="tab" 
+                                                            data-bs-target="#content-{{ symbol }}" 
+                                                            type="button" 
+                                                            role="tab" 
+                                                            aria-controls="content-{{ symbol }}" 
+                                                            aria-selected="{% if loop.first %}true{% else %}false{% endif %}">
+                                                        {{ symbol }}
+                                                    </button>
+                                                </li>
+                                            {% endfor %}
+                                        </ul>
+                                        <div class="tab-content mt-3" id="predictionTabsContent">
+                                            {% for symbol, pred_data in predictions.items() %}
+                                                <div class="tab-pane fade {% if loop.first %}show active{% endif %}" 
+                                                     id="content-{{ symbol }}" 
+                                                     role="tabpanel" 
+                                                     aria-labelledby="tab-{{ symbol }}">
+                                                    
+                                                    <div class="row">
+                                                        <div class="col-md-6">
+                                                            <div class="card mb-3">
+                                                                <div class="card-header">
+                                                                    <h6 class="mb-0">Grafico Previsioni</h6>
+                                                                </div>
+                                                                <div class="card-body">
+                                                                    <div id="chart-{{ symbol }}" style="height: 300px;"></div>
+                                                                </div>
+                                                            </div>
+                                                        </div>
+                                                        <div class="col-md-6">
+                                                            <div class="card mb-3">
+                                                                <div class="card-header">
+                                                                    <h6 class="mb-0">Segnali di Trading</h6>
+                                                                </div>
+                                                                <div class="card-body">
+                                                                    <table class="table table-sm table-striped">
+                                                                        <thead>
+                                                                            <tr>
+                                                                                <th>Data</th>
+                                                                                <th>Prezzo Previsto</th>
+                                                                                <th>Variazione</th>
+                                                                                <th>Segnale</th>
+                                                                            </tr>
+                                                                        </thead>
+                                                                        <tbody>
+                                                                            {% for signal in pred_data.signals %}
+                                                                                <tr>
+                                                                                    <td>{{ signal.date }}</td>
+                                                                                    <td>${{ "%.2f"|format(signal.predicted_close) }}</td>
+                                                                                    <td class="{% if signal.change > 0 %}text-success{% elif signal.change < 0 %}text-danger{% endif %}">
+                                                                                        {{ "%.2f"|format(signal.change * 100) }}%
+                                                                                    </td>
+                                                                                    <td>
+                                                                                        {% if signal.signal == 'BUY' %}
+                                                                                            <span class="badge bg-success">ACQUISTA</span>
+                                                                                        {% elif signal.signal == 'SELL' %}
+                                                                                            <span class="badge bg-danger">VENDI</span>
+                                                                                        {% else %}
+                                                                                            <span class="badge bg-secondary">MANTIENI</span>
+                                                                                        {% endif %}
+                                                                                    </td>
+                                                                                </tr>
+                                                                            {% endfor %}
+                                                                        </tbody>
+                                                                    </table>
+                                                                </div>
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                    
+                                                    <div class="row">
+                                                        <div class="col-md-12">
+                                                            <div class="card">
+                                                                <div class="card-header">
+                                                                    <h6 class="mb-0">Metriche del Modello</h6>
+                                                                </div>
+                                                                <div class="card-body">
+                                                                    <div class="row">
+                                                                        {% if pred_data.metrics %}
+                                                                            <div class="col-md-3">
+                                                                                <div class="card bg-light">
+                                                                                    <div class="card-body text-center">
+                                                                                        <h6 class="card-title">MSE</h6>
+                                                                                        <h4>{{ "%.4f"|format(pred_data.metrics.mse) }}</h4>
+                                                                                    </div>
+                                                                                </div>
+                                                                            </div>
+                                                                            <div class="col-md-3">
+                                                                                <div class="card bg-light">
+                                                                                    <div class="card-body text-center">
+                                                                                        <h6 class="card-title">RMSE</h6>
+                                                                                        <h4>{{ "%.4f"|format(pred_data.metrics.rmse) }}</h4>
+                                                                                    </div>
+                                                                                </div>
+                                                                            </div>
+                                                                            <div class="col-md-3">
+                                                                                <div class="card bg-light">
+                                                                                    <div class="card-body text-center">
+                                                                                        <h6 class="card-title">MAE</h6>
+                                                                                        <h4>{{ "%.4f"|format(pred_data.metrics.mae) }}</h4>
+                                                                                    </div>
+                                                                                </div>
+                                                                            </div>
+                                                                            <div class="col-md-3">
+                                                                                <div class="card bg-light">
+                                                                                    <div class="card-body text-center">
+                                                                                        <h6 class="card-title">R²</h6>
+                                                                                        <h4>{{ "%.4f"|format(pred_data.metrics.r2) }}</h4>
+                                                                                    </div>
+                                                                                </div>
+                                                                            </div>
+                                                                        {% else %}
+                                                                            <div class="col-md-12">
+                                                                                <div class="alert alert-info">
+                                                                                    <i class="fas fa-info-circle"></i> Metriche non disponibili per questo modello.
+                                                                                </div>
+                                                                            </div>
+                                                                        {% endif %}
+                                                                    </div>
+                                                                </div>
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            {% endfor %}
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    {% endif %}
+
+                    {% if training_results %}
+                        <div class="row mt-4">
+                            <div class="col-md-12">
+                                <div class="card">
+                                    <div class="card-header bg-info text-white">
+                                        <h5 class="mb-0">Risultati Addestramento</h5>
+                                    </div>
+                                    <div class="card-body">
+                                        <ul class="nav nav-tabs" id="trainingTabs" role="tablist">
+                                            {% for symbol in training_results.keys() %}
+                                                <li class="nav-item" role="presentation">
+                                                    <button class="nav-link {% if loop.first %}active{% endif %}" 
+                                                            id="train-tab-{{ symbol }}" 
+                                                            data-bs-toggle="tab" 
+                                                            data-bs-target="#train-content-{{ symbol }}" 
+                                                            type="button" 
+                                                            role="tab" 
+                                                            aria-controls="train-content-{{ symbol }}" 
+                                                            aria-selected="{% if loop.first %}true{% else %}false{% endif %}">
+                                                        {{ symbol }}
+                                                    </button>
+                                                </li>
+                                            {% endfor %}
+                                        </ul>
+                                        <div class="tab-content mt-3" id="trainingTabsContent">
+                                            {% for symbol, train_data in training_results.items() %}
+                                                <div class="tab-pane fade {% if loop.first %}show active{% endif %}" 
+                                                     id="train-content-{{ symbol }}" 
+                                                     role="tabpanel" 
+                                                     aria-labelledby="train-tab-{{ symbol }}">
+                                                    
+                                                    <div class="row">
+                                                        <div class="col-md-6">
+                                                            <div class="card mb-3">
+                                                                <div class="card-header">
+                                                                    <h6 class="mb-0">Grafico Addestramento</h6>
+                                                                </div>
+                                                                <div class="card-body">
+                                                                    <div id="train-chart-{{ symbol }}" style="height: 300px;"></div>
+                                                                </div>
+                                                            </div>
+                                                        </div>
+                                                        <div class="col-md-6">
+                                                            <div class="card mb-3">
+                                                                <div class="card-header">
+                                                                    <h6 class="mb-0">Metriche di Addestramento</h6>
+                                                                </div>
+                                                                <div class="card-body">
+                                                                    <div class="row">
+                                                                        <div class="col-md-6">
+                                                                            <div class="card bg-light">
+                                                                                <div class="card-body text-center">
+                                                                                    <h6 class="card-title">Loss Finale</h6>
+                                                                                    <h4>{{ "%.4f"|format(train_data.final_loss) }}</h4>
+                                                                                </div>
+                                                                            </div>
+                                                                        </div>
+                                                                        <div class="col-md-6">
+                                                                            <div class="card bg-light">
+                                                                                <div class="card-body text-center">
+                                                                                    <h6 class="card-title">Val Loss Finale</h6>
+                                                                                    <h4>{{ "%.4f"|format(train_data.final_val_loss) }}</h4>
+                                                                                </div>
+                                                                            </div>
+                                                                        </div>
+                                                                    </div>
+                                                                    
+                                                                    <div class="mt-3">
+                                                                        <h6>Dettagli Modello</h6>
+                                                                        <table class="table table-sm">
+                                                                            <tbody>
+                                                                                <tr>
+                                                                                    <th>Tipo</th>
+                                                                                    <td>{{ train_data.model_type }}</td>
+                                                                                </tr>
+                                                                                <tr>
+                                                                                    <th>Epoche</th>
+                                                                                    <td>{{ train_data.epochs }}</td>
+                                                                                </tr>
+                                                                                <tr>
+                                                                                    <th>Batch Size</th>
+                                                                                    <td>{{ train_data.batch_size }}</td>
+                                                                                </tr>
+                                                                                <tr>
+                                                                                    <th>Sequenza</th>
+                                                                                    <td>{{ train_data.sequence_length }}</td>
+                                                                                </tr>
+                                                                                <tr>
+                                                                                    <th>Tempo di Addestramento</th>
+                                                                                    <td>{{ train_data.training_time }} secondi</td>
+                                                                                </tr>
+                                                                            </tbody>
+                                                                        </table>
+                                                                    </div>
+                                                                </div>
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            {% endfor %}
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+{% if predictions %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    {% for symbol, pred_data in predictions.items() %}
+        // Crea il grafico delle previsioni
+        const chartData = {
+            labels: {{ pred_data.dates|tojson }},
+            datasets: [
+                {
+                    label: 'Prezzo Storico',
+                    data: {{ pred_data.historical_prices|tojson }},
+                    borderColor: 'rgba(54, 162, 235, 1)',
+                    backgroundColor: 'rgba(54, 162, 235, 0.2)',
+                    borderWidth: 2,
+                    pointRadius: 3,
+                    fill: false
+                },
+                {
+                    label: 'Previsione',
+                    data: {{ pred_data.predicted_prices|tojson }},
+                    borderColor: 'rgba(255, 99, 132, 1)',
+                    backgroundColor: 'rgba(255, 99, 132, 0.2)',
+                    borderWidth: 2,
+                    pointRadius: 3,
+                    borderDash: [5, 5],
+                    fill: false
+                }
+            ]
+        };
+        
+        const ctx = document.getElementById('chart-{{ symbol }}').getContext('2d');
+        new Chart(ctx, {
+            type: 'line',
+            data: chartData,
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                scales: {
+                    x: {
+                        display: true,
+                        title: {
+                            display: true,
+                            text: 'Data'
+                        }
+                    },
+                    y: {
+                        display: true,
+                        title: {
+                            display: true,
+                            text: 'Prezzo ($)'
+                        }
+                    }
+                },
+                plugins: {
+                    tooltip: {
+                        mode: 'index',
+                        intersect: false
+                    },
+                    legend: {
+                        position: 'top',
+                    },
+                    title: {
+                        display: true,
+                        text: 'Previsione Prezzo {{ symbol }}'
+                    }
+                }
+            }
+        });
+    {% endfor %}
+});
+</script>
+{% endif %}
+
+{% if training_results %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    {% for symbol, train_data in training_results.items() %}
+        // Crea il grafico dell'addestramento
+        const trainChartData = {
+            labels: Array.from({length: {{ train_data.epochs }}}, (_, i) => i + 1),
+            datasets: [
+                {
+                    label: 'Loss',
+                    data: {{ train_data.history.loss|tojson }},
+                    borderColor: 'rgba(54, 162, 235, 1)',
+                    backgroundColor: 'rgba(54, 162, 235, 0.2)',
+                    borderWidth: 2,
+                    pointRadius: 0,
+                    fill: false
+                },
+                {
+                    label: 'Validation Loss',
+                    data: {{ train_data.history.val_loss|tojson }},
+                    borderColor: 'rgba(255, 99, 132, 1)',
+                    backgroundColor: 'rgba(255, 99, 132, 0.2)',
+                    borderWidth: 2,
+                    pointRadius: 0,
+                    fill: false
+                }
+            ]
+        };
+        
+        const trainCtx = document.getElementById('train-chart-{{ symbol }}').getContext('2d');
+        new Chart(trainCtx, {
+            type: 'line',
+            data: trainChartData,
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                scales: {
+                    x: {
+                        display: true,
+                        title: {
+                            display: true,
+                            text: 'Epoca'
+                        }
+                    },
+                    y: {
+                        display: true,
+                        title: {
+                            display: true,
+                            text: 'Loss'
+                        }
+                    }
+                },
+                plugins: {
+                    tooltip: {
+                        mode: 'index',
+                        intersect: false
+                    },
+                    legend: {
+                        position: 'top',
+                    },
+                    title: {
+                        display: true,
+                        text: 'Addestramento Modello {{ symbol }}'
+                    }
+                }
+            }
+        });
+    {% endfor %}
+});
+</script>
+{% endif %}
+{% endblock %}

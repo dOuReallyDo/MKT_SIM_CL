@@ -1,0 +1,404 @@
+<!-- Filtri dinamici per il report -->
+<div class="row mb-4">
+    <div class="col-lg-12">
+        <div class="card">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <h5 class="card-title mb-0">Filtri e Personalizzazione</h5>
+                <button class="btn btn-sm btn-primary" id="apply-filters-btn">
+                    <i class="fas fa-filter"></i> Applica Filtri
+                </button>
+            </div>
+            <div class="card-body">
+                <div class="row">
+                    <div class="col-md-3">
+                        <div class="mb-3">
+                            <label for="date-range-filter" class="form-label">Intervallo Date</label>
+                            <select class="form-select" id="date-range-filter">
+                                <option value="all" selected>Tutte le date</option>
+                                <option value="first-week">Prima settimana</option>
+                                <option value="first-month">Primo mese</option>
+                                <option value="last-week">Ultima settimana</option>
+                                <option value="last-month">Ultimo mese</option>
+                                <option value="custom">Personalizzato...</option>
+                            </select>
+                            <div id="custom-date-range" class="mt-2" style="display: none;">
+                                <div class="input-group input-group-sm">
+                                    <span class="input-group-text">Da</span>
+                                    <input type="date" class="form-control" id="custom-start-date">
+                                    <span class="input-group-text">A</span>
+                                    <input type="date" class="form-control" id="custom-end-date">
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-3">
+                        <div class="mb-3">
+                            <label for="agent-filter" class="form-label">Filtra per Agenti</label>
+                            <select class="form-select" id="agent-filter" multiple>
+                                <!-- Opzioni generate dinamicamente -->
+                            </select>
+                        </div>
+                    </div>
+                    <div class="col-md-3">
+                        <div class="mb-3">
+                            <label for="symbol-filter" class="form-label">Filtra per Simbolo</label>
+                            <select class="form-select" id="symbol-filter" multiple>
+                                <!-- Opzioni generate dinamicamente -->
+                            </select>
+                        </div>
+                    </div>
+                    <div class="col-md-3">
+                        <div class="mb-3">
+                            <label for="transaction-type-filter" class="form-label">Tipo Transazione</label>
+                            <select class="form-select" id="transaction-type-filter">
+                                <option value="all" selected>Tutte</option>
+                                <option value="buy">Solo acquisti</option>
+                                <option value="sell">Solo vendite</option>
+                            </select>
+                        </div>
+                    </div>
+                </div>
+                <div class="row">
+                    <div class="col-md-3">
+                        <div class="mb-3">
+                            <label for="chart-type" class="form-label">Tipo di Grafico</label>
+                            <select class="form-select" id="chart-type">
+                                <option value="line" selected>Linea</option>
+                                <option value="bar">Barre</option>
+                                <option value="candlestick">Candlestick</option>
+                                <option value="area">Area</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="col-md-3">
+                        <div class="mb-3">
+                            <label for="show-ma" class="form-label">Medie Mobili</label>
+                            <div class="form-check">
+                                <input class="form-check-input" type="checkbox" id="show-ma-20">
+                                <label class="form-check-label" for="show-ma-20">
+                                    MA 20 giorni
+                                </label>
+                            </div>
+                            <div class="form-check">
+                                <input class="form-check-input" type="checkbox" id="show-ma-50">
+                                <label class="form-check-label" for="show-ma-50">
+                                    MA 50 giorni
+                                </label>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-3">
+                        <div class="mb-3">
+                            <label for="comparison-baseline" class="form-label">Confronto</label>
+                            <select class="form-select" id="comparison-baseline">
+                                <option value="none" selected>Nessuno</option>
+                                <option value="spy">S&P 500 (SPY)</option>
+                                <option value="portfolio">Media portafoglio</option>
+                                <option value="best-agent">Miglior agente</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="col-md-3">
+                        <div class="mb-3">
+                            <label for="metrics-display" class="form-label">Metriche da Visualizzare</label>
+                            <div class="form-check">
+                                <input class="form-check-input" type="checkbox" id="show-drawdown" checked>
+                                <label class="form-check-label" for="show-drawdown">
+                                    Drawdown
+                                </label>
+                            </div>
+                            <div class="form-check">
+                                <input class="form-check-input" type="checkbox" id="show-volatility" checked>
+                                <label class="form-check-label" for="show-volatility">
+                                    Volatilità
+                                </label>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="row mb-4">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <h5 class="card-title">Azioni</h5>
+                <div>
+                    <a href="{{ url_for('generate_report', report_id=report_id, format='pdf') }}" class="btn btn-primary">
+                        <i class="fas fa-file-pdf"></i> Esporta in PDF
+                    </a>
+                    <a href="{{ url_for('generate_report', report_id=report_id, format='excel') }}" class="btn btn-success">
+                        <i class="fas fa-file-excel"></i> Esporta in Excel
+                    </a>
+                    <a href="{{ url_for('reports') }}" class="btn btn-secondary">
+                        <i class="fas fa-arrow-left"></i> Torna ai Report
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Script per i filtri dinamici -->
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        // Elementi DOM per i filtri
+        const dateRangeFilter = document.getElementById('date-range-filter');
+        const customDateRange = document.getElementById('custom-date-range');
+        const customStartDate = document.getElementById('custom-start-date');
+        const customEndDate = document.getElementById('custom-end-date');
+        const agentFilter = document.getElementById('agent-filter');
+        const symbolFilter = document.getElementById('symbol-filter');
+        const transactionTypeFilter = document.getElementById('transaction-type-filter');
+        const chartType = document.getElementById('chart-type');
+        const showMA20 = document.getElementById('show-ma-20');
+        const showMA50 = document.getElementById('show-ma-50');
+        const comparisonBaseline = document.getElementById('comparison-baseline');
+        const showDrawdown = document.getElementById('show-drawdown');
+        const showVolatility = document.getElementById('show-volatility');
+        const applyFiltersBtn = document.getElementById('apply-filters-btn');
+        
+        // Carica i dati della simulazione
+        const reportData = JSON.parse('{{ report_data|tojson|safe }}');
+        
+        // Inizializza i filtri
+        function initializeFilters() {
+            // Imposta le date predefinite
+            if (reportData.daily_data && reportData.daily_data.length > 0) {
+                const dates = reportData.daily_data.map(d => d.date);
+                const firstDate = dates[0];
+                const lastDate = dates[dates.length - 1];
+                
+                customStartDate.value = firstDate;
+                customEndDate.value = lastDate;
+            }
+            
+            // Popola il filtro degli agenti
+            if (reportData.agents) {
+                agentFilter.innerHTML = '';
+                reportData.agents.forEach(agent => {
+                    const option = document.createElement('option');
+                    option.value = agent.id;
+                    option.text = `Agente ${agent.id}`;
+                    option.selected = true;  // Seleziona tutti gli agenti per default
+                    agentFilter.appendChild(option);
+                });
+            }
+            
+            // Popola il filtro dei simboli
+            if (reportData.symbols) {
+                symbolFilter.innerHTML = '';
+                reportData.symbols.forEach(symbol => {
+                    const option = document.createElement('option');
+                    option.value = symbol;
+                    option.text = symbol;
+                    option.selected = true;  // Seleziona tutti i simboli per default
+                    symbolFilter.appendChild(option);
+                });
+            }
+        }
+        
+        // Gestisce il cambio dell'intervallo di date
+        dateRangeFilter.addEventListener('change', function() {
+            if (this.value === 'custom') {
+                customDateRange.style.display = 'block';
+            } else {
+                customDateRange.style.display = 'none';
+                
+                if (reportData.daily_data && reportData.daily_data.length > 0) {
+                    const dates = reportData.daily_data.map(d => d.date);
+                    const firstDate = dates[0];
+                    const lastDate = dates[dates.length - 1];
+                    
+                    // Calcola le date in base al filtro selezionato
+                    switch (this.value) {
+                        case 'first-week':
+                            customStartDate.value = firstDate;
+                            const firstWeekEnd = new Date(firstDate);
+                            firstWeekEnd.setDate(firstWeekEnd.getDate() + 7);
+                            customEndDate.value = firstWeekEnd.toISOString().split('T')[0];
+                            break;
+                        case 'first-month':
+                            customStartDate.value = firstDate;
+                            const firstMonthEnd = new Date(firstDate);
+                            firstMonthEnd.setMonth(firstMonthEnd.getMonth() + 1);
+                            customEndDate.value = firstMonthEnd.toISOString().split('T')[0];
+                            break;
+                        case 'last-week':
+                            const lastWeekStart = new Date(lastDate);
+                            lastWeekStart.setDate(lastWeekStart.getDate() - 7);
+                            customStartDate.value = lastWeekStart.toISOString().split('T')[0];
+                            customEndDate.value = lastDate;
+                            break;
+                        case 'last-month':
+                            const lastMonthStart = new Date(lastDate);
+                            lastMonthStart.setMonth(lastMonthStart.getMonth() - 1);
+                            customStartDate.value = lastMonthStart.toISOString().split('T')[0];
+                            customEndDate.value = lastDate;
+                            break;
+                        default:
+                            customStartDate.value = firstDate;
+                            customEndDate.value = lastDate;
+                            break;
+                    }
+                }
+            }
+        });
+        
+        // Applica i filtri quando si fa clic sul pulsante
+        applyFiltersBtn.addEventListener('click', function() {
+            applyFilters();
+        });
+        
+        // Funzione per applicare tutti i filtri
+        function applyFilters() {
+            // Recupera i valori dei filtri
+            const startDate = customStartDate.value;
+            const endDate = customEndDate.value;
+            const selectedAgents = [...agentFilter.selectedOptions].map(opt => opt.value);
+            const selectedSymbols = [...symbolFilter.selectedOptions].map(opt => opt.value);
+            const transactionType = transactionTypeFilter.value;
+            const selectedChartType = chartType.value;
+            const useMA20 = showMA20.checked;
+            const useMA50 = showMA50.checked;
+            const baseline = comparisonBaseline.value;
+            const useDrawdown = showDrawdown.checked;
+            const useVolatility = showVolatility.checked;
+            
+            // Filtra i dati giornalieri per data
+            let filteredDailyData = reportData.daily_data;
+            if (startDate && endDate) {
+                filteredDailyData = filteredDailyData.filter(d => {
+                    return d.date >= startDate && d.date <= endDate;
+                });
+            }
+            
+            // Filtra le transazioni
+            let filteredTransactions = reportData.transactions;
+            if (selectedAgents.length > 0) {
+                filteredTransactions = filteredTransactions.filter(tx => 
+                    selectedAgents.includes(tx.agent_id.toString()));
+            }
+            if (selectedSymbols.length > 0) {
+                filteredTransactions = filteredTransactions.filter(tx => 
+                    selectedSymbols.includes(tx.symbol));
+            }
+            if (transactionType !== 'all') {
+                filteredTransactions = filteredTransactions.filter(tx => 
+                    tx.action === transactionType);
+            }
+            
+            // Aggiorna i grafici con i dati filtrati
+            updateCharts(filteredDailyData, filteredTransactions, {
+                chartType: selectedChartType,
+                showMA20: useMA20,
+                showMA50: useMA50,
+                baseline: baseline,
+                showDrawdown: useDrawdown,
+                showVolatility: useVolatility,
+                selectedAgents: selectedAgents,
+                selectedSymbols: selectedSymbols
+            });
+            
+            // Aggiorna la tabella delle transazioni
+            updateTransactionsTable(filteredTransactions);
+            
+            // Aggiorna le metriche di performance
+            updatePerformanceMetrics(filteredDailyData, selectedAgents);
+        }
+        
+        // Funzione per aggiornare i grafici
+        function updateCharts(dailyData, transactions, options) {
+            // Implementazione dipende dai grafici specifici usati nel template
+            console.log('Aggiornamento grafici con opzioni:', options);
+            
+            // Esempio: potrebbe richiamare funzioni specifiche per aggiornare ogni grafico
+            updatePortfolioChart(dailyData, options);
+            updatePriceChart(dailyData, transactions, options);
+            if (options.showDrawdown) {
+                updateDrawdownChart(dailyData, options);
+            }
+            if (options.showVolatility) {
+                updateVolatilityChart(dailyData, options);
+            }
+        }
+        
+        // Funzione per aggiornare il grafico del portafoglio
+        function updatePortfolioChart(dailyData, options) {
+            // Qui andrebbe l'implementazione specifica per il grafico del portafoglio
+            // Ad esempio, utilizzando una libreria di grafici come Chart.js o Plotly
+            console.log('Aggiornamento grafico del portafoglio');
+        }
+        
+        // Funzione per aggiornare il grafico dei prezzi
+        function updatePriceChart(dailyData, transactions, options) {
+            // Qui andrebbe l'implementazione specifica per il grafico dei prezzi
+            console.log('Aggiornamento grafico dei prezzi');
+        }
+        
+        // Funzione per aggiornare il grafico del drawdown
+        function updateDrawdownChart(dailyData, options) {
+            // Qui andrebbe l'implementazione specifica per il grafico del drawdown
+            console.log('Aggiornamento grafico del drawdown');
+        }
+        
+        // Funzione per aggiornare il grafico della volatilità
+        function updateVolatilityChart(dailyData, options) {
+            // Qui andrebbe l'implementazione specifica per il grafico della volatilità
+            console.log('Aggiornamento grafico della volatilità');
+        }
+        
+        // Funzione per aggiornare la tabella delle transazioni
+        function updateTransactionsTable(transactions) {
+            const tbody = document.querySelector('#transactions-table tbody');
+            if (!tbody) return;
+            
+            // Svuota la tabella
+            tbody.innerHTML = '';
+            
+            // Aggiungi le transazioni filtrate
+            for (const tx of transactions.slice(0, 20)) {  // Mostra solo le prime 20 per performance
+                const row = document.createElement('tr');
+                
+                // Aggiunge le celle della riga
+                row.innerHTML = `
+                    <td>${tx.date || 'N/A'}</td>
+                    <td>${tx.agent_id}</td>
+                    <td>${tx.symbol}</td>
+                    <td>${tx.action === 'buy' ? 'Acquisto' : 'Vendita'}</td>
+                    <td>${tx.quantity}</td>
+                    <td>${formatCurrency(tx.price)}</td>
+                    <td>${formatCurrency(tx.total)}</td>
+                `;
+                
+                tbody.appendChild(row);
+            }
+            
+            // Aggiorna il contatore delle transazioni totali
+            const totalTxCount = document.getElementById('total-tx-count');
+            if (totalTxCount) {
+                totalTxCount.textContent = transactions.length;
+            }
+        }
+        
+        // Funzione per aggiornare le metriche di performance
+        function updatePerformanceMetrics(dailyData, selectedAgents) {
+            // Implementazione per aggiornare le metriche di performance visualizzate
+            console.log('Aggiornamento metriche di performance');
+        }
+        
+        // Funzione per formattare i valori monetari
+        function formatCurrency(value) {
+            return new Intl.NumberFormat('it-IT', {
+                style: 'currency',
+                currency: 'EUR'
+            }).format(value);
+        }
+        
+        // Inizializza i filtri all'avvio
+        initializeFilters();
+    });
+</script> 

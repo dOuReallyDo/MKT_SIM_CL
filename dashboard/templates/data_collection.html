@@ -1,0 +1,343 @@
+{% extends "base.html" %}
+
+{% block title %}Raccolta Dati | Dashboard{% endblock %}
+
+{% block content %}
+<div class="container-fluid mt-4">
+    <div class="row">
+        <div class="col-md-12">
+            <div class="card shadow mb-4">
+                <div class="card-header py-3 d-flex flex-row align-items-center justify-content-between">
+                    <h6 class="m-0 font-weight-bold text-primary">Raccolta Dati</h6>
+                </div>
+                <div class="card-body">
+                    <form method="POST" action="{{ url_for('data_collection') }}">
+                        <div class="row mb-3">
+                            <div class="col-md-12">
+                                <label for="symbols" class="form-label">Simboli (separati da virgola)</label>
+                                <input type="text" class="form-control" id="symbols" name="symbols" 
+                                       value="{{ symbols|join(',') if symbols else '' }}" 
+                                       placeholder="es. AAPL,MSFT,GOOGL" required>
+                                <div class="form-text">Inserisci i simboli dei titoli da scaricare, separati da virgola.</div>
+                            </div>
+                        </div>
+                        <div class="row mb-3">
+                            <div class="col-md-6">
+                                <label for="start_date" class="form-label">Data Inizio</label>
+                                <input type="date" class="form-control" id="start_date" name="start_date" 
+                                       value="{{ start_date if start_date else default_start_date }}" required>
+                            </div>
+                            <div class="col-md-6">
+                                <label for="end_date" class="form-label">Data Fine</label>
+                                <input type="date" class="form-control" id="end_date" name="end_date" 
+                                       value="{{ end_date if end_date else default_end_date }}" required>
+                            </div>
+                        </div>
+                        <div class="row mb-3">
+                            <div class="col-md-12">
+                                <label for="interval" class="form-label">Intervallo</label>
+                                <select class="form-select" id="interval" name="interval">
+                                    <option value="1d" {% if interval == '1d' or not interval %}selected{% endif %}>Giornaliero (1d)</option>
+                                    <option value="1h" {% if interval == '1h' %}selected{% endif %}>Orario (1h)</option>
+                                    <option value="1wk" {% if interval == '1wk' %}selected{% endif %}>Settimanale (1wk)</option>
+                                    <option value="1mo" {% if interval == '1mo' %}selected{% endif %}>Mensile (1mo)</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div class="d-grid">
+                            <button type="submit" class="btn btn-primary btn-lg">Download Dati</button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Dati disponibili -->
+    <div class="row">
+        <div class="col-md-12">
+            <div class="card shadow mb-4">
+                <div class="card-header py-3 d-flex flex-row align-items-center justify-content-between">
+                    <h6 class="m-0 font-weight-bold text-primary">Dati Disponibili</h6>
+                    <div class="dropdown no-arrow">
+                        <button class="btn btn-sm btn-outline-secondary" id="refreshDataBtn">
+                            <i class="fas fa-sync-alt"></i> Aggiorna
+                        </button>
+                    </div>
+                </div>
+                <div class="card-body">
+                    {% if available_data %}
+                        <div class="table-responsive">
+                            <table class="table table-hover" id="dataTable">
+                                <thead>
+                                    <tr>
+                                        <th>Simbolo</th>
+                                        <th>Da Data</th>
+                                        <th>A Data</th>
+                                        <th>Righe</th>
+                                        <th>Dimensione</th>
+                                        <th>Ultimo Aggiornamento</th>
+                                        <th>Azioni</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {% for symbol, data in available_data.items() %}
+                                    <tr>
+                                        <td><strong>{{ symbol }}</strong></td>
+                                        <td>{{ data.start_date }}</td>
+                                        <td>{{ data.end_date }}</td>
+                                        <td>{{ data.rows }}</td>
+                                        <td>{{ data.size }}</td>
+                                        <td>{{ data.last_update }}</td>
+                                        <td>
+                                            <button class="btn btn-sm btn-info preview-btn" data-symbol="{{ symbol }}">
+                                                <i class="fas fa-eye"></i> Preview
+                                            </button>
+                                            <a href="{{ url_for('market_data_visualization', symbol=symbol) }}" class="btn btn-sm btn-success">
+                                                <i class="fas fa-chart-line"></i> Grafici Avanzati
+                                            </a>
+                                            <button class="btn btn-sm btn-danger delete-btn" data-symbol="{{ symbol }}">
+                                                <i class="fas fa-trash"></i> Elimina
+                                            </button>
+                                        </td>
+                                    </tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+                    {% else %}
+                        <div class="alert alert-info" role="alert">
+                            <i class="fas fa-info-circle mr-2"></i> Nessun dato disponibile. Usa il form sopra per scaricare i dati.
+                        </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal per preview dei dati -->
+<div class="modal fade" id="previewModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="previewModalLabel">Preview Dati</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <div id="previewLoader" class="text-center">
+                    <div class="spinner-border text-primary" role="status">
+                        <span class="visually-hidden">Caricamento...</span>
+                    </div>
+                </div>
+                <div id="previewContent" style="display: none;">
+                    <div class="table-responsive">
+                        <table class="table table-sm table-striped" id="previewTable">
+                            <thead id="previewTableHead"></thead>
+                            <tbody id="previewTableBody"></tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Chiudi</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal per conferma eliminazione -->
+<div class="modal fade" id="deleteModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="deleteModalLabel">Conferma Eliminazione</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                Sei sicuro di voler eliminare i dati per <strong id="deleteSymbol"></strong>?
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Annulla</button>
+                <button type="button" class="btn btn-danger" id="confirmDelete">Elimina</button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    // Funzione per inizializzare datepicker con i valori predefiniti
+    document.addEventListener("DOMContentLoaded", function() {
+        // Form validation
+        const form = document.querySelector('form');
+        if (form) {
+            form.addEventListener('submit', function(event) {
+                if (!this.checkValidity()) {
+                    event.preventDefault();
+                    event.stopPropagation();
+                }
+                form.classList.add('was-validated');
+            });
+        }
+        
+        // Preview dati
+        const previewButtons = document.querySelectorAll('.preview-btn');
+        previewButtons.forEach(button => {
+            button.addEventListener('click', function() {
+                const symbol = this.getAttribute('data-symbol');
+                showPreview(symbol);
+            });
+        });
+        
+        // Eliminazione dati
+        const deleteButtons = document.querySelectorAll('.delete-btn');
+        deleteButtons.forEach(button => {
+            button.addEventListener('click', function() {
+                const symbol = this.getAttribute('data-symbol');
+                document.getElementById('deleteSymbol').textContent = symbol;
+                const deleteModal = new bootstrap.Modal(document.getElementById('deleteModal'));
+                deleteModal.show();
+                
+                document.getElementById('confirmDelete').onclick = function() {
+                    deleteData(symbol);
+                    deleteModal.hide();
+                };
+            });
+        });
+        
+        // Aggiorna dati disponibili
+        document.getElementById('refreshDataBtn').addEventListener('click', function() {
+            window.location.reload();
+        });
+        
+        // Persisti le date e i simboli nella sessione
+        saveFormState();
+    });
+    
+    function saveFormState() {
+        const symbols = document.getElementById('symbols');
+        const startDate = document.getElementById('start_date');
+        const endDate = document.getElementById('end_date');
+        const interval = document.getElementById('interval');
+        
+        // Salva lo stato nel sessionStorage quando i valori cambiano
+        [symbols, startDate, endDate, interval].forEach(element => {
+            if (element) {
+                element.addEventListener('change', function() {
+                    const state = {
+                        symbols: symbols.value,
+                        startDate: startDate.value,
+                        endDate: endDate.value,
+                        interval: interval.value
+                    };
+                    
+                    // Invia lo stato al server tramite API
+                    fetch('/api/state/data_collection', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(state)
+                    });
+                });
+            }
+        });
+    }
+    
+    function showPreview(symbol) {
+        const previewModal = new bootstrap.Modal(document.getElementById('previewModal'));
+        previewModal.show();
+        
+        document.getElementById('previewModalLabel').textContent = `Preview Dati - ${symbol}`;
+        document.getElementById('previewLoader').style.display = 'block';
+        document.getElementById('previewContent').style.display = 'none';
+        
+        // Carica i dati di preview
+        fetch(`/api/data_preview/${symbol}`)
+            .then(response => response.json())
+            .then(data => {
+                if (data.error) {
+                    document.getElementById('previewContent').innerHTML = `
+                        <div class="alert alert-danger">${data.error}</div>
+                    `;
+                } else {
+                    // Crea l'intestazione della tabella
+                    let headHTML = '<tr>';
+                    data.columns.forEach(column => {
+                        headHTML += `<th>${column}</th>`;
+                    });
+                    headHTML += '</tr>';
+                    document.getElementById('previewTableHead').innerHTML = headHTML;
+                    
+                    // Crea il corpo della tabella
+                    let bodyHTML = '';
+                    data.data.forEach(row => {
+                        bodyHTML += '<tr>';
+                        row.forEach(cell => {
+                            bodyHTML += `<td>${cell}</td>`;
+                        });
+                        bodyHTML += '</tr>';
+                    });
+                    document.getElementById('previewTableBody').innerHTML = bodyHTML;
+                }
+                
+                document.getElementById('previewLoader').style.display = 'none';
+                document.getElementById('previewContent').style.display = 'block';
+            })
+            .catch(error => {
+                document.getElementById('previewContent').innerHTML = `
+                    <div class="alert alert-danger">Errore durante il caricamento dei dati: ${error.message}</div>
+                `;
+                document.getElementById('previewLoader').style.display = 'none';
+                document.getElementById('previewContent').style.display = 'block';
+            });
+    }
+    
+    function deleteData(symbol) {
+        fetch(`/api/delete_data/${symbol}`, { method: 'DELETE' })
+            .then(response => response.json())
+            .then(data => {
+                if (data.error) {
+                    showAlert('danger', `Errore: ${data.error}`);
+                } else {
+                    showAlert('success', data.message);
+                    // Rimuovi la riga dalla tabella
+                    const tableRows = document.querySelectorAll('#dataTable tbody tr');
+                    tableRows.forEach(row => {
+                        if (row.querySelector('td:first-child strong').textContent === symbol) {
+                            row.remove();
+                        }
+                    });
+                    
+                    // Se non ci sono più righe, mostra il messaggio "nessun dato"
+                    if (document.querySelectorAll('#dataTable tbody tr').length === 0) {
+                        document.querySelector('.table-responsive').innerHTML = `
+                            <div class="alert alert-info" role="alert">
+                                <i class="fas fa-info-circle mr-2"></i> Nessun dato disponibile. Usa il form sopra per scaricare i dati.
+                            </div>
+                        `;
+                    }
+                }
+            })
+            .catch(error => {
+                showAlert('danger', `Errore: ${error.message}`);
+            });
+    }
+    
+    function showAlert(type, message) {
+        const alertDiv = document.createElement('div');
+        alertDiv.className = `alert alert-${type} alert-dismissible fade show position-fixed top-0 end-0 m-3`;
+        alertDiv.setAttribute('role', 'alert');
+        alertDiv.innerHTML = `
+            ${message}
+            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+        `;
+        document.body.appendChild(alertDiv);
+        
+        // Rimuovi l'alert dopo 5 secondi
+        setTimeout(() => {
+            alertDiv.remove();
+        }, 5000);
+    }
+</script>
+{% endblock %} 

@@ -1,0 +1,252 @@
+{% extends "base.html" %}
+
+{% block title %}Visualizzazione Dati {{ symbol }} | Dashboard{% endblock %}
+
+{% block content %}
+<div class="container-fluid mt-4">
+    <div class="row">
+        <div class="col-md-12">
+            <div class="card shadow mb-4">
+                <div class="card-header py-3 d-flex flex-row align-items-center justify-content-between">
+                    <h6 class="m-0 font-weight-bold text-primary">Dati di Mercato: {{ symbol }}</h6>
+                    <div>
+                        <a href="{{ url_for('data_collection') }}" class="btn btn-sm btn-outline-secondary">
+                            <i class="fas fa-arrow-left"></i> Torna indietro
+                        </a>
+                    </div>
+                </div>
+                <div class="card-body">
+                    {% if stats %}
+                    <div class="row mb-4">
+                        <div class="col-md-12">
+                            <div class="alert alert-info">
+                                <div class="row">
+                                    <div class="col-md-3">
+                                        <strong>Periodo:</strong> {{ stats.period_start }} - {{ stats.period_end }}
+                                    </div>
+                                    <div class="col-md-2">
+                                        <strong>Giorni:</strong> {{ stats.trading_days }}
+                                    </div>
+                                    <div class="col-md-2">
+                                        <strong>Prezzo attuale:</strong> {{ "%.2f"|format(stats.current_price) }}
+                                    </div>
+                                    <div class="col-md-2">
+                                        <strong>Variazione:</strong> 
+                                        <span class="{% if stats.change_percent > 0 %}text-success{% else %}text-danger{% endif %}">
+                                            {{ "%.2f"|format(stats.change_percent) }}%
+                                        </span>
+                                    </div>
+                                    <div class="col-md-3">
+                                        <strong>Min/Max:</strong> {{ "%.2f"|format(stats.min_price) }} / {{ "%.2f"|format(stats.max_price) }}
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    {% endif %}
+                    
+                    <!-- Tabs per i diversi grafici -->
+                    <ul class="nav nav-tabs" id="chartsTab" role="tablist">
+                        {% if charts.candlestick %}
+                        <li class="nav-item" role="presentation">
+                            <button class="nav-link active" id="candlestick-tab" data-bs-toggle="tab" 
+                                  data-bs-target="#candlestick" type="button" role="tab" 
+                                  aria-controls="candlestick" aria-selected="true">
+                                Candlestick
+                            </button>
+                        </li>
+                        {% endif %}
+                        
+                        {% if charts.volume %}
+                        <li class="nav-item" role="presentation">
+                            <button class="nav-link" id="volume-tab" data-bs-toggle="tab" 
+                                  data-bs-target="#volume" type="button" role="tab" 
+                                  aria-controls="volume" aria-selected="false">
+                                Volume
+                            </button>
+                        </li>
+                        {% endif %}
+                        
+                        {% if charts.moving_averages %}
+                        <li class="nav-item" role="presentation">
+                            <button class="nav-link" id="sma-tab" data-bs-toggle="tab" 
+                                  data-bs-target="#sma" type="button" role="tab" 
+                                  aria-controls="sma" aria-selected="false">
+                                Medie Mobili
+                            </button>
+                        </li>
+                        {% endif %}
+                        
+                        {% if charts.macd %}
+                        <li class="nav-item" role="presentation">
+                            <button class="nav-link" id="macd-tab" data-bs-toggle="tab" 
+                                  data-bs-target="#macd" type="button" role="tab" 
+                                  aria-controls="macd" aria-selected="false">
+                                MACD
+                            </button>
+                        </li>
+                        {% endif %}
+                        
+                        {% if charts.rsi %}
+                        <li class="nav-item" role="presentation">
+                            <button class="nav-link" id="rsi-tab" data-bs-toggle="tab" 
+                                  data-bs-target="#rsi" type="button" role="tab" 
+                                  aria-controls="rsi" aria-selected="false">
+                                RSI
+                            </button>
+                        </li>
+                        {% endif %}
+                        
+                        {% if charts.bollinger %}
+                        <li class="nav-item" role="presentation">
+                            <button class="nav-link" id="bollinger-tab" data-bs-toggle="tab" 
+                                  data-bs-target="#bollinger" type="button" role="tab" 
+                                  aria-controls="bollinger" aria-selected="false">
+                                Bollinger Bands
+                            </button>
+                        </li>
+                        {% endif %}
+                        
+                        <li class="nav-item" role="presentation">
+                            <button class="nav-link" id="data-tab" data-bs-toggle="tab" 
+                                  data-bs-target="#data" type="button" role="tab" 
+                                  aria-controls="data" aria-selected="false">
+                                Dati Grezzi
+                            </button>
+                        </li>
+                    </ul>
+                    
+                    <!-- Contenuto delle tab -->
+                    <div class="tab-content" id="chartsTabContent">
+                        {% if charts.candlestick %}
+                        <div class="tab-pane fade show active" id="candlestick" role="tabpanel" aria-labelledby="candlestick-tab">
+                            <div class="chart-container" style="height: 500px;">
+                                <div id="candlestickChart" class="chart"></div>
+                            </div>
+                        </div>
+                        {% endif %}
+                        
+                        {% if charts.volume %}
+                        <div class="tab-pane fade" id="volume" role="tabpanel" aria-labelledby="volume-tab">
+                            <div class="chart-container" style="height: 500px;">
+                                <div id="volumeChart" class="chart"></div>
+                            </div>
+                        </div>
+                        {% endif %}
+                        
+                        {% if charts.moving_averages %}
+                        <div class="tab-pane fade" id="sma" role="tabpanel" aria-labelledby="sma-tab">
+                            <div class="chart-container" style="height: 500px;">
+                                <div id="smaChart" class="chart"></div>
+                            </div>
+                        </div>
+                        {% endif %}
+                        
+                        {% if charts.macd %}
+                        <div class="tab-pane fade" id="macd" role="tabpanel" aria-labelledby="macd-tab">
+                            <div class="chart-container" style="height: 500px;">
+                                <div id="macdChart" class="chart"></div>
+                            </div>
+                        </div>
+                        {% endif %}
+                        
+                        {% if charts.rsi %}
+                        <div class="tab-pane fade" id="rsi" role="tabpanel" aria-labelledby="rsi-tab">
+                            <div class="chart-container" style="height: 500px;">
+                                <div id="rsiChart" class="chart"></div>
+                            </div>
+                        </div>
+                        {% endif %}
+                        
+                        {% if charts.bollinger %}
+                        <div class="tab-pane fade" id="bollinger" role="tabpanel" aria-labelledby="bollinger-tab">
+                            <div class="chart-container" style="height: 500px;">
+                                <div id="bollingerChart" class="chart"></div>
+                            </div>
+                        </div>
+                        {% endif %}
+                        
+                        <div class="tab-pane fade" id="data" role="tabpanel" aria-labelledby="data-tab">
+                            <div class="row mt-4">
+                                <div class="col-md-6">
+                                    <h6 class="font-weight-bold">Primi 5 record</h6>
+                                    {{ df_head|safe }}
+                                </div>
+                                <div class="col-md-6">
+                                    <h6 class="font-weight-bold">Ultimi 5 record</h6>
+                                    {{ df_tail|safe }}
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script src="https://cdn.plot.ly/plotly-2.20.0.min.js"></script>
+<script>
+document.addEventListener("DOMContentLoaded", function() {
+    // Funzione per rendere i grafici
+    function renderChart(chartData, elementId) {
+        if (!chartData || !elementId) return;
+        
+        // Decodifica il JSON se necessario
+        let chartConfig;
+        if (typeof chartData === 'string') {
+            try {
+                chartConfig = JSON.parse(chartData);
+            } catch (e) {
+                console.error("Errore nel parsing del JSON:", e);
+                return;
+            }
+        } else {
+            chartConfig = chartData;
+        }
+        
+        // Renderizza il grafico
+        Plotly.newPlot(elementId, chartConfig.data, chartConfig.layout, {responsive: true});
+    }
+    
+    // Codifica HTML per il passaggio di oggetti JSON da Flask a JavaScript
+    function decodeHtml(html) {
+        var txt = document.createElement("textarea");
+        txt.innerHTML = html;
+        return txt.value;
+    }
+    
+    // Inizializza tutti i grafici
+    {% if charts.candlestick %}
+    renderChart({{ charts.candlestick|tojson }}, 'candlestickChart');
+    {% endif %}
+    
+    {% if charts.volume %}
+    renderChart({{ charts.volume|tojson }}, 'volumeChart');
+    {% endif %}
+    
+    {% if charts.moving_averages %}
+    renderChart({{ charts.moving_averages|tojson }}, 'smaChart');
+    {% endif %}
+    
+    {% if charts.macd %}
+    renderChart({{ charts.macd|tojson }}, 'macdChart');
+    {% endif %}
+    
+    {% if charts.rsi %}
+    renderChart({{ charts.rsi|tojson }}, 'rsiChart');
+    {% endif %}
+    
+    {% if charts.bollinger %}
+    renderChart({{ charts.bollinger|tojson }}, 'bollingerChart');
+    {% endif %}
+    
+    // Ridimensiona i grafici quando le tab vengono attivate
+    $('button[data-bs-toggle="tab"]').on('shown.bs.tab', function (e) {
+        window.dispatchEvent(new Event('resize'));
+    });
+});
+</script>
+{% endblock %} 

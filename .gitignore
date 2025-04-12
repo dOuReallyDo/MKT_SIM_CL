@@ -1,0 +1,46 @@
+# ❌ File e cartelle di sistema
+.DS_Store
+*.bak
+*.old
+*.zip
+
+# ❌ Ambiente virtuale
+.venv/
+venv/
+
+# ❌ Librerie compilate o pesanti
+*.so
+*.dylib
+*.exe
+*.dll
+
+# ❌ Python cache
+__pycache__/
+*.py[cod]
+*.pyo
+
+# ❌ File nascosti
+.env
+.env.*
+
+# ❌ VSCode settings
+.vscode/
+
+# ❌ Log e output vari
+*.log
+*.out
+*.tmp
+
+# ❌ File grandi (>100MB) (per evitare errori GitHub)
+*.pt
+*.h5
+*.onnx
+*.pb
+*.ckpt
+*.tflite
+
+# ❌ Coverage / test / build
+.coverage
+coverage.xml
+build/
+dist/

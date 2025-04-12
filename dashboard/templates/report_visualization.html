@@ -1,0 +1,437 @@
+{% extends 'base.html' %}
+
+{% block title %}Visualizzazione Report{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <h4 class="card-title">Visualizzazione Report: {{ report_id }}</h4>
+                    <button class="btn btn-primary" onclick="window.location.href='/reports'">
+                        <i class="bi bi-arrow-left"></i> Torna ai Report
+                    </button>
+                </div>
+                <div class="card-body">
+                    <div class="alert alert-info">
+                        <strong>Info Report:</strong> {{ report_info.description if report_info.description else "Nessuna descrizione" }} 
+                        | <strong>Data:</strong> {{ report_info.timestamp }}
+                        | <strong>Dimensione:</strong> {{ report_info.size }}
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="card-title">Controlli Visualizzazione</h5>
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-md-3">
+                            <div class="form-group mb-3">
+                                <label for="chart-type" class="form-label">Tipo di Grafico</label>
+                                <select id="chart-type" class="form-control">
+                                    <option value="candlestick">Candlestick</option>
+                                    <option value="line">Linea</option>
+                                    <option value="ohlc">OHLC</option>
+                                    <option value="area">Area</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div class="col-md-3">
+                            <div class="form-group mb-3">
+                                <label for="symbols" class="form-label">Simboli</label>
+                                <select id="symbols-select" class="form-control" multiple>
+                                    {% for symbol in symbols %}
+                                    <option value="{{ symbol }}" selected>{{ symbol }}</option>
+                                    {% endfor %}
+                                </select>
+                            </div>
+                        </div>
+                        <div class="col-md-3">
+                            <div class="form-group mb-3">
+                                <label for="indicators" class="form-label">Indicatori</label>
+                                <select id="indicators" class="form-control" multiple>
+                                    <option value="ma20">Media Mobile 20 giorni</option>
+                                    <option value="ma50">Media Mobile 50 giorni</option>
+                                    <option value="ma200">Media Mobile 200 giorni</option>
+                                    <option value="volume">Volume</option>
+                                    <option value="bollinger">Bande di Bollinger</option>
+                                    <option value="rsi">RSI</option>
+                                    <option value="macd">MACD</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div class="col-md-3">
+                            <div class="form-group mb-3">
+                                <label for="time-range" class="form-label">Intervallo Temporale</label>
+                                <select id="time-range" class="form-control">
+                                    <option value="all">Tutto</option>
+                                    <option value="1w">Ultima Settimana</option>
+                                    <option value="1m">Ultimo Mese</option>
+                                    <option value="3m">Ultimi 3 Mesi</option>
+                                    <option value="6m">Ultimi 6 Mesi</option>
+                                    <option value="1y">Ultimo Anno</option>
+                                </select>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="row mb-3">
+                        <div class="col-12">
+                            <button id="apply-filters" class="btn btn-primary">Applica Filtri</button>
+                            <button id="reset-filters" class="btn btn-secondary">Reset</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="row">
+        <div class="col-lg-8">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="card-title">Grafico Principale</h5>
+                </div>
+                <div class="card-body">
+                    <div id="main-chart" style="height: 600px;"></div>
+                </div>
+            </div>
+        </div>
+        <div class="col-lg-4">
+            <div class="row">
+                <div class="col-12 mb-4">
+                    <div class="card">
+                        <div class="card-header">
+                            <h5 class="card-title">Statistiche di Trading</h5>
+                        </div>
+                        <div class="card-body">
+                            <div id="stats-container">
+                                <table class="table table-striped">
+                                    <thead>
+                                        <tr>
+                                            <th>Metrica</th>
+                                            <th>Valore</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {% for key, value in report_stats.items() %}
+                                        <tr>
+                                            <td>{{ key }}</td>
+                                            <td>{{ value }}</td>
+                                        </tr>
+                                        {% endfor %}
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-12">
+                    <div class="card">
+                        <div class="card-header">
+                            <h5 class="card-title">Operazioni di Trading</h5>
+                        </div>
+                        <div class="card-body">
+                            <div id="trades-container" style="height: 300px; overflow-y: auto;">
+                                <table class="table table-striped table-sm">
+                                    <thead>
+                                        <tr>
+                                            <th>Data</th>
+                                            <th>Simbolo</th>
+                                            <th>Tipo</th>
+                                            <th>Prezzo</th>
+                                            <th>Quantità</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {% for trade in trades %}
+                                        <tr class="{{ 'table-success' if trade.type == 'BUY' else 'table-danger' }}">
+                                            <td>{{ trade.date }}</td>
+                                            <td>{{ trade.symbol }}</td>
+                                            <td>{{ trade.type }}</td>
+                                            <td>{{ trade.price }}</td>
+                                            <td>{{ trade.quantity }}</td>
+                                        </tr>
+                                        {% endfor %}
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="row mt-4">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="card-title">Performance del Portafoglio</h5>
+                </div>
+                <div class="card-body">
+                    <div id="portfolio-chart" style="height: 400px;"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Plotly.js -->
+<script src="https://cdn.plot.ly/plotly-latest.min.js"></script>
+
+<script>
+// Dati della simulazione
+var simulationData = JSON.parse('{{ simulation_data|tojson|safe }}');
+var reportId = "{{ report_id }}";
+var symbolsList = JSON.parse('{{ symbols|tojson|safe }}');
+
+// Funzione per inizializzare i grafici
+function initCharts() {
+    // Inizializza il grafico principale con il primo simbolo
+    if (symbolsList.length > 0) {
+        var defaultSymbol = symbolsList[0];
+        updateMainChart(defaultSymbol, 'candlestick', ['ma20', 'ma50', 'ma200'], 'all');
+    }
+    
+    // Inizializza il grafico del portafoglio
+    updatePortfolioChart();
+}
+
+// Funzione per aggiornare il grafico principale
+function updateMainChart(symbol, chartType, indicators, timeRange) {
+    var data = simulationData[symbol];
+    if (!data) return;
+    
+    // Prepara i dati per il grafico
+    var traces = [];
+    
+    // Aggiunge il grafico principale (candlestick, line, etc.)
+    if (chartType === 'candlestick') {
+        traces.push({
+            type: 'candlestick',
+            x: data.dates,
+            open: data.open,
+            high: data.high,
+            low: data.low,
+            close: data.close,
+            name: symbol,
+            increasing: {line: {color: '#26a69a'}},
+            decreasing: {line: {color: '#ef5350'}}
+        });
+    } else if (chartType === 'line') {
+        traces.push({
+            type: 'scatter',
+            x: data.dates,
+            y: data.close,
+            name: symbol,
+            line: {color: '#2196f3'}
+        });
+    } else if (chartType === 'ohlc') {
+        traces.push({
+            type: 'ohlc',
+            x: data.dates,
+            open: data.open,
+            high: data.high,
+            low: data.low,
+            close: data.close,
+            name: symbol,
+            increasing: {line: {color: '#26a69a'}},
+            decreasing: {line: {color: '#ef5350'}}
+        });
+    } else if (chartType === 'area') {
+        traces.push({
+            type: 'scatter',
+            x: data.dates,
+            y: data.close,
+            fill: 'tozeroy',
+            name: symbol,
+            line: {color: '#2196f3'}
+        });
+    }
+    
+    // Aggiunge gli indicatori
+    if (indicators.includes('ma20')) {
+        traces.push({
+            type: 'scatter',
+            x: data.dates,
+            y: data.ma20 || calculateMA(data.close, 20),
+            name: 'MA 20',
+            line: {color: '#ff9800', width: 1}
+        });
+    }
+    
+    if (indicators.includes('ma50')) {
+        traces.push({
+            type: 'scatter',
+            x: data.dates,
+            y: data.ma50 || calculateMA(data.close, 50),
+            name: 'MA 50',
+            line: {color: '#e91e63', width: 1}
+        });
+    }
+    
+    if (indicators.includes('ma200')) {
+        traces.push({
+            type: 'scatter',
+            x: data.dates,
+            y: data.ma200 || calculateMA(data.close, 200),
+            name: 'MA 200',
+            line: {color: '#9c27b0', width: 1.5}
+        });
+    }
+    
+    if (indicators.includes('volume')) {
+        traces.push({
+            type: 'bar',
+            x: data.dates,
+            y: data.volume,
+            name: 'Volume',
+            yaxis: 'y2',
+            marker: {color: '#90a4ae'}
+        });
+    }
+    
+    // Imposta il layout del grafico
+    var layout = {
+        title: symbol + ' - Prezzo',
+        dragmode: 'zoom',
+        showlegend: true,
+        legend: {
+            x: 0,
+            y: 1
+        },
+        xaxis: {
+            rangeslider: {visible: true},
+            type: 'date'
+        },
+        yaxis: {
+            title: 'Prezzo',
+            autorange: true,
+            domain: [0.1, 1]
+        },
+        yaxis2: {
+            title: 'Volume',
+            domain: [0, 0.1],
+            showticklabels: false
+        },
+        margin: {
+            l: 50,
+            r: 50,
+            b: 50,
+            t: 50,
+            pad: 4
+        },
+        template: 'plotly_white'
+    };
+    
+    // Renderizza il grafico
+    Plotly.newPlot('main-chart', traces, layout);
+}
+
+// Funzione per aggiornare il grafico del portafoglio
+function updatePortfolioChart() {
+    var portfolioData = simulationData.portfolio || [];
+    
+    if (!portfolioData || !portfolioData.dates) return;
+    
+    var trace = {
+        type: 'scatter',
+        x: portfolioData.dates,
+        y: portfolioData.equity,
+        name: 'Equity',
+        line: {color: '#4caf50', width: 2}
+    };
+    
+    var benchmark = {
+        type: 'scatter',
+        x: portfolioData.dates,
+        y: portfolioData.benchmark || [],
+        name: 'Benchmark',
+        line: {color: '#9e9e9e', width: 1.5, dash: 'dash'}
+    };
+    
+    var layout = {
+        title: 'Performance del Portafoglio',
+        xaxis: {
+            rangeslider: {visible: true},
+            type: 'date'
+        },
+        yaxis: {
+            title: 'Valore',
+            autorange: true
+        },
+        template: 'plotly_white'
+    };
+    
+    Plotly.newPlot('portfolio-chart', [trace, benchmark], layout);
+}
+
+// Utility per calcolare la media mobile
+function calculateMA(data, period) {
+    var result = [];
+    for (var i = 0; i < data.length; i++) {
+        if (i < period - 1) {
+            result.push(null);
+        } else {
+            var sum = 0;
+            for (var j = 0; j < period; j++) {
+                sum += data[i - j];
+            }
+            result.push(sum / period);
+        }
+    }
+    return result;
+}
+
+// Gestione eventi degli input
+document.getElementById('apply-filters').addEventListener('click', function() {
+    var chartType = document.getElementById('chart-type').value;
+    var symbolsSelect = document.getElementById('symbols-select');
+    var selectedSymbols = Array.from(symbolsSelect.selectedOptions).map(function(option) {
+        return option.value;
+    });
+    var indicatorsSelect = document.getElementById('indicators');
+    var selectedIndicators = Array.from(indicatorsSelect.selectedOptions).map(function(option) {
+        return option.value;
+    });
+    var timeRange = document.getElementById('time-range').value;
+    
+    if (selectedSymbols.length > 0) {
+        updateMainChart(selectedSymbols[0], chartType, selectedIndicators, timeRange);
+    }
+});
+
+document.getElementById('reset-filters').addEventListener('click', function() {
+    document.getElementById('chart-type').value = 'candlestick';
+    document.getElementById('time-range').value = 'all';
+    
+    var symbolsSelect = document.getElementById('symbols-select');
+    for (var i = 0; i < symbolsSelect.options.length; i++) {
+        symbolsSelect.options[i].selected = true;
+    }
+    
+    var indicatorsSelect = document.getElementById('indicators');
+    for (var i = 0; i < indicatorsSelect.options.length; i++) {
+        indicatorsSelect.options[i].selected = false;
+    }
+    
+    if (indicatorsSelect.options.length > 0) indicatorsSelect.options[0].selected = true; // MA 20
+    if (indicatorsSelect.options.length > 1) indicatorsSelect.options[1].selected = true; // MA 50
+    if (indicatorsSelect.options.length > 2) indicatorsSelect.options[2].selected = true; // MA 200
+    
+    if (symbolsList.length > 0) {
+        updateMainChart(symbolsList[0], 'candlestick', ['ma20', 'ma50', 'ma200'], 'all');
+    }
+});
+
+// Inizializza i grafici al caricamento della pagina
+document.addEventListener('DOMContentLoaded', initCharts);
+</script>
+{% endblock %} 

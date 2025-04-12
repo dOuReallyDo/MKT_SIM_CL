@@ -1,0 +1,190 @@
+{% extends "base.html" %}
+
+{% block title %}Configurazione Capitale Iniziale{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <div class="row">
+        <div class="col-md-12">
+            <div class="card">
+                <div class="card-header bg-primary text-white">
+                    <h4 class="mb-0">Configurazione Capitale Iniziale</h4>
+                </div>
+                <div class="card-body">
+                    <form id="capitalForm" method="POST" action="{{ url_for('wizard_configure_capital') }}">
+                        <div class="mb-4">
+                            <h5>Imposta il capitale iniziale per la simulazione</h5>
+                            <p class="text-muted">Definisci il capitale di partenza per gli agenti di trading</p>
+                        </div>
+
+                        <div class="form-group mb-4">
+                            <label for="initial_capital">Capitale Iniziale (USD)</label>
+                            <div class="input-group">
+                                <div class="input-group-prepend">
+                                    <span class="input-group-text">$</span>
+                                </div>
+                                <input type="number" class="form-control" id="initial_capital" name="initial_capital" 
+                                       value="{{ initial_capital if initial_capital else 100000 }}" min="1000" step="1000">
+                            </div>
+                            <small class="form-text text-muted">Capitale iniziale per ogni agente di trading</small>
+                        </div>
+
+                        <div class="form-group mb-4">
+                            <label>Capitali Predefiniti</label>
+                            <div class="btn-group d-flex flex-wrap" role="group">
+                                <button type="button" class="btn btn-sm btn-outline-secondary m-1 capital-btn" data-capital="10000">$10,000</button>
+                                <button type="button" class="btn btn-sm btn-outline-secondary m-1 capital-btn" data-capital="50000">$50,000</button>
+                                <button type="button" class="btn btn-sm btn-outline-secondary m-1 capital-btn" data-capital="100000">$100,000</button>
+                                <button type="button" class="btn btn-sm btn-outline-secondary m-1 capital-btn" data-capital="500000">$500,000</button>
+                                <button type="button" class="btn btn-sm btn-outline-secondary m-1 capital-btn" data-capital="1000000">$1,000,000</button>
+                            </div>
+                        </div>
+
+                        <div class="form-group mb-4">
+                            <label for="risk_level">Livello di Rischio</label>
+                            <input type="range" class="form-range" id="risk_level" name="risk_level" min="1" max="10" value="{{ risk_level if risk_level else 5 }}">
+                            <div class="d-flex justify-content-between">
+                                <small class="text-muted">Conservativo</small>
+                                <small class="text-muted" id="risk_level_value">Moderato (5)</small>
+                                <small class="text-muted">Aggressivo</small>
+                            </div>
+                            <small class="form-text text-muted">Influenza la dimensione delle posizioni e la frequenza delle operazioni</small>
+                        </div>
+
+                        <div class="form-group mb-4">
+                            <div class="form-check">
+                                <input class="form-check-input" type="checkbox" id="use_stop_loss" name="use_stop_loss" checked>
+                                <label class="form-check-label" for="use_stop_loss">
+                                    Utilizza Stop Loss
+                                </label>
+                            </div>
+                            <div class="form-check">
+                                <input class="form-check-input" type="checkbox" id="use_take_profit" name="use_take_profit" checked>
+                                <label class="form-check-label" for="use_take_profit">
+                                    Utilizza Take Profit
+                                </label>
+                            </div>
+                        </div>
+
+                        <div class="row mb-4" id="risk_params">
+                            <div class="col-md-6">
+                                <div class="form-group">
+                                    <label for="stop_loss_percentage">Stop Loss (%)</label>
+                                    <input type="number" class="form-control" id="stop_loss_percentage" name="stop_loss_percentage" 
+                                           value="{{ stop_loss_percentage if stop_loss_percentage else 2.0 }}" min="0.1" max="20" step="0.1">
+                                    <small class="form-text text-muted">Percentuale di perdita massima per operazione</small>
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="form-group">
+                                    <label for="take_profit_percentage">Take Profit (%)</label>
+                                    <input type="number" class="form-control" id="take_profit_percentage" name="take_profit_percentage" 
+                                           value="{{ take_profit_percentage if take_profit_percentage else 5.0 }}" min="0.1" max="50" step="0.1">
+                                    <small class="form-text text-muted">Percentuale di guadagno target per operazione</small>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="alert alert-info">
+                            <i class="fas fa-info-circle"></i> Queste impostazioni influenzano il comportamento degli agenti di trading durante la simulazione.
+                        </div>
+
+                        <div class="d-flex justify-content-between mt-4">
+                            <a href="{{ url_for('wizard_configure_time_period') }}" class="btn btn-secondary">Indietro</a>
+                            <button type="submit" class="btn btn-primary">Avanti</button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const initialCapitalInput = document.getElementById('initial_capital');
+    const capitalBtns = document.querySelectorAll('.capital-btn');
+    const riskLevelInput = document.getElementById('risk_level');
+    const riskLevelValue = document.getElementById('risk_level_value');
+    const useStopLossCheckbox = document.getElementById('use_stop_loss');
+    const useTakeProfitCheckbox = document.getElementById('use_take_profit');
+    const stopLossInput = document.getElementById('stop_loss_percentage');
+    const takeProfitInput = document.getElementById('take_profit_percentage');
+    const riskParamsDiv = document.getElementById('risk_params');
+    
+    // Formatta il numero con separatori delle migliaia
+    function formatNumber(num) {
+        return num.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ",");
+    }
+    
+    // Aggiorna il valore del livello di rischio
+    function updateRiskLevelValue() {
+        const value = riskLevelInput.value;
+        let riskText = "Moderato";
+        
+        if (value <= 3) {
+            riskText = "Conservativo";
+        } else if (value >= 8) {
+            riskText = "Aggressivo";
+        }
+        
+        riskLevelValue.textContent = `${riskText} (${value})`;
+    }
+    
+    // Aggiorna la visibilità dei parametri di rischio
+    function updateRiskParamsVisibility() {
+        const useStopLoss = useStopLossCheckbox.checked;
+        const useTakeProfit = useTakeProfitCheckbox.checked;
+        
+        stopLossInput.disabled = !useStopLoss;
+        takeProfitInput.disabled = !useTakeProfit;
+        
+        if (!useStopLoss && !useTakeProfit) {
+            riskParamsDiv.classList.add('d-none');
+        } else {
+            riskParamsDiv.classList.remove('d-none');
+        }
+    }
+    
+    // Gestione dei pulsanti dei capitali predefiniti
+    capitalBtns.forEach(btn => {
+        btn.addEventListener('click', function() {
+            const capital = parseInt(this.getAttribute('data-capital'));
+            initialCapitalInput.value = capital;
+            
+            // Evidenzia il pulsante selezionato
+            capitalBtns.forEach(b => {
+                b.classList.remove('btn-secondary');
+                b.classList.add('btn-outline-secondary');
+            });
+            
+            this.classList.remove('btn-outline-secondary');
+            this.classList.add('btn-secondary');
+        });
+    });
+    
+    // Evidenzia il pulsante del capitale corrente all'avvio
+    const currentCapital = parseInt(initialCapitalInput.value);
+    capitalBtns.forEach(btn => {
+        const btnCapital = parseInt(btn.getAttribute('data-capital'));
+        if (btnCapital === currentCapital) {
+            btn.classList.remove('btn-outline-secondary');
+            btn.classList.add('btn-secondary');
+        }
+    });
+    
+    // Aggiorna il valore del livello di rischio all'avvio
+    updateRiskLevelValue();
+    
+    // Aggiorna quando il livello di rischio cambia
+    riskLevelInput.addEventListener('input', updateRiskLevelValue);
+    
+    // Aggiorna la visibilità dei parametri di rischio all'avvio
+    updateRiskParamsVisibility();
+    
+    // Aggiorna quando i checkbox cambiano
+    useStopLossCheckbox.addEventListener('change', updateRiskParamsVisibility);
+    useTakeProfitCheckbox.addEventListener('change', updateRiskParamsVisibility);
+});
+</script>
+{% endblock %}

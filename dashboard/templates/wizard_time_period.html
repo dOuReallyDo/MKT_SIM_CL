@@ -1,0 +1,153 @@
+{% extends "base.html" %}
+
+{% block title %}Configurazione Periodo Temporale{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <div class="row">
+        <div class="col-md-12">
+            <div class="card">
+                <div class="card-header bg-primary text-white">
+                    <h4 class="mb-0">Configurazione Periodo Temporale</h4>
+                </div>
+                <div class="card-body">
+                    <form id="timePeriodForm" method="POST" action="{{ url_for('wizard_configure_time_period') }}">
+                        <div class="mb-4">
+                            <h5>Seleziona il periodo temporale per la simulazione</h5>
+                            <p class="text-muted">Definisci l'intervallo di date per la simulazione del mercato</p>
+                        </div>
+
+                        <div class="row">
+                            <div class="col-md-6">
+                                <div class="form-group mb-4">
+                                    <label for="start_date">Data di Inizio</label>
+                                    <input type="date" class="form-control" id="start_date" name="start_date" 
+                                           value="{{ start_date if start_date else default_start_date }}">
+                                    <small class="form-text text-muted">Data di inizio della simulazione</small>
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="form-group mb-4">
+                                    <label for="end_date">Data di Fine</label>
+                                    <input type="date" class="form-control" id="end_date" name="end_date" 
+                                           value="{{ end_date if end_date else default_end_date }}">
+                                    <small class="form-text text-muted">Data di fine della simulazione</small>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="form-group mb-4">
+                            <label for="interval">Intervallo</label>
+                            <select class="form-control" id="interval" name="interval">
+                                <option value="1d" {% if interval == '1d' %}selected{% endif %}>Giornaliero (1d)</option>
+                                <option value="1h" {% if interval == '1h' %}selected{% endif %}>Orario (1h)</option>
+                                <option value="1wk" {% if interval == '1wk' %}selected{% endif %}>Settimanale (1wk)</option>
+                                <option value="1mo" {% if interval == '1mo' %}selected{% endif %}>Mensile (1mo)</option>
+                            </select>
+                            <small class="form-text text-muted">Intervallo dei dati di mercato</small>
+                        </div>
+
+                        <div class="form-group mb-4">
+                            <label>Periodi Predefiniti</label>
+                            <div class="btn-group d-flex flex-wrap" role="group">
+                                <button type="button" class="btn btn-sm btn-outline-secondary m-1 period-btn" data-days="30">Ultimo Mese</button>
+                                <button type="button" class="btn btn-sm btn-outline-secondary m-1 period-btn" data-days="90">Ultimi 3 Mesi</button>
+                                <button type="button" class="btn btn-sm btn-outline-secondary m-1 period-btn" data-days="180">Ultimi 6 Mesi</button>
+                                <button type="button" class="btn btn-sm btn-outline-secondary m-1 period-btn" data-days="365">Ultimo Anno</button>
+                                <button type="button" class="btn btn-sm btn-outline-secondary m-1 period-btn" data-days="730">Ultimi 2 Anni</button>
+                            </div>
+                        </div>
+
+                        <div id="dateRangeInfo" class="alert alert-info">
+                            <span id="tradingDaysCount">Calcolo giorni di trading...</span>
+                        </div>
+
+                        <div class="d-flex justify-content-between mt-4">
+                            <a href="{{ url_for('wizard_configure_symbols') }}" class="btn btn-secondary">Indietro</a>
+                            <button type="submit" class="btn btn-primary">Avanti</button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const startDateInput = document.getElementById('start_date');
+    const endDateInput = document.getElementById('end_date');
+    const periodBtns = document.querySelectorAll('.period-btn');
+    const tradingDaysCountSpan = document.getElementById('tradingDaysCount');
+    
+    // Funzione per calcolare i giorni di trading
+    function calculateTradingDays(start, end) {
+        // Converti le date in oggetti Date
+        const startDate = new Date(start);
+        const endDate = new Date(end);
+        
+        // Calcola la differenza in giorni
+        const diffTime = Math.abs(endDate - startDate);
+        const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+        
+        // Stima dei giorni di trading (circa 252 giorni di trading all'anno)
+        const tradingDays = Math.round(diffDays * (252 / 365));
+        
+        return {
+            totalDays: diffDays,
+            tradingDays: tradingDays
+        };
+    }
+    
+    // Funzione per aggiornare l'informazione sui giorni di trading
+    function updateTradingDaysInfo() {
+        const start = startDateInput.value;
+        const end = endDateInput.value;
+        
+        if (start && end) {
+            const days = calculateTradingDays(start, end);
+            tradingDaysCountSpan.textContent = `Periodo selezionato: ${days.totalDays} giorni (circa ${days.tradingDays} giorni di trading)`;
+        } else {
+            tradingDaysCountSpan.textContent = 'Seleziona un intervallo di date valido';
+        }
+    }
+    
+    // Aggiorna all'avvio
+    updateTradingDaysInfo();
+    
+    // Aggiorna quando le date cambiano
+    startDateInput.addEventListener('change', updateTradingDaysInfo);
+    endDateInput.addEventListener('change', updateTradingDaysInfo);
+    
+    // Gestione dei pulsanti dei periodi predefiniti
+    periodBtns.forEach(btn => {
+        btn.addEventListener('click', function() {
+            const days = parseInt(this.getAttribute('data-days'));
+            
+            // Calcola la data di fine (oggi)
+            const endDate = new Date();
+            
+            // Calcola la data di inizio (oggi - giorni)
+            const startDate = new Date();
+            startDate.setDate(startDate.getDate() - days);
+            
+            // Formatta le date in YYYY-MM-DD
+            endDateInput.value = endDate.toISOString().split('T')[0];
+            startDateInput.value = startDate.toISOString().split('T')[0];
+            
+            // Aggiorna l'informazione sui giorni di trading
+            updateTradingDaysInfo();
+            
+            // Evidenzia il pulsante selezionato
+            periodBtns.forEach(b => {
+                b.classList.remove('btn-secondary');
+                b.classList.add('btn-outline-secondary');
+            });
+            
+            this.classList.remove('btn-outline-secondary');
+            this.classList.add('btn-secondary');
+        });
+    });
+});
+</script>
+{% endblock %}

@@ -1,0 +1,293 @@
+<!-- Hero Section -->
+<section class="hero-section">
+    <div class="container">
+        <h1 class="fw-bold">Guida Utente</h1>
+        <p class="lead">Scopri come utilizzare al meglio il sistema di trading algoritmico</p>
+    </div>
+</section>
+
+<!-- Main Content -->
+<section class="py-5">
+    <div class="container">
+        <div class="row">
+            <!-- Sidebar -->
+            <div class="col-lg-3">
+                <div class="guide-sidebar">
+                    <div class="card shadow">
+                        <div class="card-header bg-primary text-white">
+                            <h5 class="mb-0">Indice</h5>
+                        </div>
+                        <div class="card-body p-0">
+                            <div class="list-group list-group-flush">
+                                <a href="#introduzione" class="list-group-item list-group-item-action">Introduzione</a>
+                                <a href="#requisiti" class="list-group-item list-group-item-action">Requisiti di Sistema</a>
+                                <a href="#configurazione" class="list-group-item list-group-item-action">Configurazione</a>
+                                <a href="#raccolta-dati" class="list-group-item list-group-item-action">Raccolta Dati</a>
+                                <a href="#simulazione" class="list-group-item list-group-item-action">Simulazione di Mercato</a>
+                                <a href="#strategie" class="list-group-item list-group-item-action">Strategie di Trading</a>
+                                <a href="#reti-neurali" class="list-group-item list-group-item-action">Addestramento Reti Neurali</a>
+                                <a href="#previsioni" class="list-group-item list-group-item-action">Previsioni</a>
+                                <a href="#troubleshooting" class="list-group-item list-group-item-action">Risoluzione Problemi</a>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Content -->
+            <div class="col-lg-9">
+                <div class="card shadow">
+                    <div class="card-body guide-content">
+                        <h2 id="introduzione">Introduzione</h2>
+                        <p>MKT SIM è un sistema integrato di simulazione del mercato azionario e trading algoritmico basato su reti neurali. Il sistema consente di:</p>
+                        <ul>
+                            <li>Scaricare e preparare dati storici di mercato</li>
+                            <li>Simulare il comportamento del mercato con agenti virtuali</li>
+                            <li>Implementare diverse strategie di trading algoritmico</li>
+                            <li>Addestrare modelli di deep learning per la previsione dei prezzi</li>
+                            <li>Analizzare le performance delle strategie e dei modelli</li>
+                        </ul>
+                        
+                        <div class="alert alert-info">
+                            <i class="bi bi-info-circle me-2"></i>Questa guida ti fornirà tutte le informazioni necessarie per utilizzare al meglio il sistema.
+                        </div>
+                        
+                        <h2 id="requisiti">Requisiti di Sistema</h2>
+                        <p>Per utilizzare il sistema MKT SIM, è necessario disporre dei seguenti requisiti:</p>
+                        <ul>
+                            <li>Python 3.8 o superiore</li>
+                            <li>PyTorch 1.8 o superiore</li>
+                            <li>Connessione Internet per il download dei dati</li>
+                            <li>Almeno 8GB di RAM</li>
+                            <li>Spazio su disco: minimo 2GB per i dati e i modelli</li>
+                        </ul>
+                        
+                        <h3>Pacchetti Python Richiesti</h3>
+                        <p>Di seguito sono elencati i principali pacchetti Python necessari per il funzionamento del sistema:</p>
+                        <div class="code-block">
+                            pandas==1.3.0<br>
+                            numpy==1.20.3<br>
+                            matplotlib==3.4.2<br>
+                            scikit-learn==0.24.2<br>
+                            torch==1.9.0<br>
+                            yfinance==0.1.63<br>
+                            flask==2.0.1
+                        </div>
+                        
+                        <h2 id="configurazione">Configurazione</h2>
+                        <p>Prima di utilizzare il sistema, è necessario configurare i parametri di base attraverso la pagina di Configurazione.</p>
+                        
+                        <h3>Parametri Principali</h3>
+                        <ul>
+                            <li><strong>Simboli di Trading</strong>: I simboli azionari che verranno utilizzati per la simulazione (es. AAPL, MSFT, GOOGL)</li>
+                            <li><strong>Periodo di Tempo</strong>: Il range di date per la simulazione e l'addestramento</li>
+                            <li><strong>Capitale Iniziale</strong>: Il capitale iniziale per ogni agente di trading</li>
+                            <li><strong>Strategia Attiva</strong>: La strategia di trading da utilizzare nella simulazione</li>
+                        </ul>
+                        
+                        <p>Una volta configurati i parametri, questi verranno salvati e utilizzati per le successive operazioni.</p>
+                        
+                        <div class="alert alert-warning">
+                            <i class="bi bi-exclamation-triangle me-2"></i>Modificare la configurazione influenzerà tutte le operazioni successive. Assicurati di inserire i valori corretti.
+                        </div>
+                        
+                        <h2 id="raccolta-dati">Raccolta Dati</h2>
+                        <p>Il sistema utilizza dati storici di mercato per simulazioni e addestramento. La raccolta dati è il primo passo per utilizzare il sistema.</p>
+                        
+                        <h3>Fonti Dati</h3>
+                        <p>I dati vengono scaricati principalmente da Yahoo Finance, che offre accesso gratuito a dati storici per un'ampia gamma di simboli finanziari.</p>
+                        
+                        <h3>Procedura di Download</h3>
+                        <ol>
+                            <li>Vai alla pagina "Raccolta Dati"</li>
+                            <li>Inserisci i simboli dei titoli separati da virgola (es. AAPL, MSFT, GOOGL)</li>
+                            <li>Seleziona la data di inizio e fine per il download</li>
+                            <li>Clicca su "Scarica Dati"</li>
+                        </ol>
+                        
+                        <p>I dati scaricati vengono automaticamente salvati nella directory <code>data/</code> e possono essere utilizzati per simulazioni successive senza necessità di riscaricarli.</p>
+                        
+                        <h2 id="simulazione">Simulazione di Mercato</h2>
+                        <p>La simulazione di mercato permette di testare diverse strategie di trading in un ambiente controllato utilizzando dati storici reali.</p>
+                        
+                        <h3>Creazione della Simulazione</h3>
+                        <ol>
+                            <li>Vai alla pagina "Simulazione"</li>
+                            <li>Inserisci i simboli dei titoli da simulare</li>
+                            <li>Seleziona il periodo di tempo per la simulazione</li>
+                            <li>Imposta il capitale iniziale degli agenti</li>
+                            <li>Seleziona la strategia di trading da utilizzare</li>
+                            <li>Imposta il numero di agenti da creare</li>
+                            <li>Clicca su "Avvia Simulazione"</li>
+                        </ol>
+                        
+                        <h3>Analisi dei Risultati</h3>
+                        <p>Una volta completata la simulazione, il sistema mostrerà:</p>
+                        <ul>
+                            <li>Un riepilogo delle transazioni effettuate</li>
+                            <li>Un grafico della performance degli agenti</li>
+                            <li>Una tabella dettagliata con i risultati di ogni agente</li>
+                        </ul>
+                        
+                        <div class="alert alert-success">
+                            <i class="bi bi-check-circle me-2"></i>Ti consigliamo di eseguire più simulazioni con diverse strategie per confrontare i risultati.
+                        </div>
+                        
+                        <h2 id="strategie">Strategie di Trading</h2>
+                        <p>Il sistema supporta diverse strategie di trading algoritmico, ognuna con le proprie caratteristiche e parametri.</p>
+                        
+                        <h3>Strategia Casuale</h3>
+                        <p>La strategia casuale effettua acquisti e vendite in modo casuale, con una probabilità prefissata. Utilizzata principalmente come baseline per confrontare le performance delle altre strategie.</p>
+                        
+                        <h3>Mean Reversion</h3>
+                        <p>La strategia di Mean Reversion si basa sul principio che i prezzi tendono a tornare alla loro media di lungo periodo. Acquista quando il prezzo è significativamente inferiore alla media e vende quando è superiore.</p>
+                        <p><strong>Parametri</strong>: Window Size (dimensione della finestra per calcolare la media mobile)</p>
+                        
+                        <h3>Trend Following</h3>
+                        <p>La strategia Trend Following segue la tendenza del mercato, acquistando in un trend rialzista e vendendo in un trend ribassista. Utilizza medie mobili a breve e lungo termine per identificare i trend.</p>
+                        <p><strong>Parametri</strong>: Short Window (finestra breve), Long Window (finestra lunga)</p>
+                        
+                        <h3>Value Investing</h3>
+                        <p>La strategia Value Investing si basa sull'analisi fondamentale, acquistando titoli sottovalutati e vendendo quelli sopravvalutati in base a indici come il P/E ratio.</p>
+                        
+                        <h3>Neural Network</h3>
+                        <p>La strategia basata su Reti Neurali utilizza modelli di deep learning per prevedere i movimenti futuri dei prezzi e prendere decisioni di trading in base a queste previsioni.</p>
+                        
+                        <h2 id="reti-neurali">Addestramento Reti Neurali</h2>
+                        <p>Il sistema permette di addestrare modelli di deep learning per la previsione dei prezzi delle azioni.</p>
+                        
+                        <h3>Tipi di Modelli</h3>
+                        <ul>
+                            <li><strong>LSTM (Long Short-Term Memory)</strong>: Efficace per l'analisi di serie temporali e pattern sequenziali</li>
+                            <li><strong>CNN (Convolutional Neural Network)</strong>: Utile per identificare pattern locali nei dati</li>
+                            <li><strong>Transformer</strong>: Modello avanzato basato sul meccanismo di attenzione, efficace per sequenze lunghe</li>
+                        </ul>
+                        
+                        <h3>Procedura di Addestramento</h3>
+                        <ol>
+                            <li>Vai alla pagina "Addestramento"</li>
+                            <li>Seleziona i simboli dei titoli per l'addestramento</li>
+                            <li>Imposta il periodo di tempo da utilizzare</li>
+                            <li>Seleziona il tipo di modello da addestrare</li>
+                            <li>Imposta il numero di epoche di addestramento</li>
+                            <li>Clicca su "Avvia Addestramento"</li>
+                        </ol>
+                        
+                        <p>Al termine dell'addestramento, il sistema mostrerà le metriche di performance del modello e salverà il modello addestrato nella directory <code>models/</code>.</p>
+                        
+                        <h2 id="previsioni">Previsioni</h2>
+                        <p>Una volta addestrato un modello, puoi utilizzarlo per fare previsioni sui prezzi futuri.</p>
+                        
+                        <h3>Esecuzione delle Previsioni</h3>
+                        <ol>
+                            <li>Vai alla pagina "Previsioni"</li>
+                            <li>Seleziona il simbolo per cui desideri la previsione</li>
+                            <li>Seleziona il tipo di modello da utilizzare</li>
+                            <li>Clicca su "Esegui Previsione"</li>
+                        </ol>
+                        
+                        <p>Il sistema mostrerà il prezzo previsto, il prezzo attuale e la variazione percentuale, insieme a un grafico che visualizza i dati storici e la previsione.</p>
+                        
+                        <div class="alert alert-warning">
+                            <i class="bi bi-exclamation-triangle me-2"></i>Ricorda che le previsioni finanziarie sono soggette a incertezza. Utilizza queste informazioni solo come indicazione, non come certezza.
+                        </div>
+                        
+                        <h2 id="troubleshooting">Risoluzione Problemi</h2>
+                        
+                        <h3>Errori Comuni</h3>
+                        <ul>
+                            <li><strong>Dati non disponibili</strong>: Assicurati che i simboli inseriti siano corretti e disponibili su Yahoo Finance.</li>
+                            <li><strong>Memoria insufficiente</strong>: Prova a ridurre il numero di simboli o il periodo di tempo della simulazione.</li>
+                            <li><strong>Errori di addestramento</strong>: Verifica che ci siano abbastanza dati per l'addestramento e che il modello non sia troppo complesso per i dati disponibili.</li>
+                        </ul>
+                        
+                        <h3>Contattare il Supporto</h3>
+                        <p>Se riscontri problemi non descritti in questa guida, puoi contattare il supporto tecnico tramite:</p>
+                        <ul>
+                            <li>Email: support@mktsim.com</li>
+                            <li>Repository GitHub: <a href="https://github.com/mktsim/trading-algo">github.com/mktsim/trading-algo</a></li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</section>
+
+<style>
+    .hero-section {
+        background: linear-gradient(135deg, #6f42c1 0%, #6610f2 100%);
+        color: white;
+        padding: 2rem 0;
+    }
+    
+    .guide-sidebar {
+        position: sticky;
+        top: 2rem;
+        height: calc(100vh - 4rem);
+        overflow-y: auto;
+    }
+    
+    .guide-content {
+        font-size: 1.1rem;
+        line-height: 1.7;
+    }
+    
+    .guide-content h2 {
+        margin-top: 2.5rem;
+        margin-bottom: 1rem;
+        padding-bottom: 0.5rem;
+        border-bottom: 1px solid #dee2e6;
+    }
+    
+    .guide-content h3 {
+        margin-top: 2rem;
+        color: #6f42c1;
+    }
+    
+    .guide-content p {
+        margin-bottom: 1.2rem;
+    }
+    
+    .guide-content .alert {
+        margin: 1.5rem 0;
+    }
+    
+    .guide-content .code-block {
+        background-color: #f8f9fa;
+        padding: 1rem;
+        border-radius: 0.5rem;
+        margin-bottom: 1.5rem;
+        font-family: monospace;
+        overflow-x: auto;
+    }
+</style>
+
+<script>
+    // Script per lo scrollspy
+    document.addEventListener('DOMContentLoaded', function() {
+        const sidebarLinks = document.querySelectorAll('.guide-sidebar .list-group-item');
+        
+        window.addEventListener('scroll', function() {
+            const scrollPosition = window.scrollY;
+            
+            // Trova la sezione attualmente visibile
+            const sections = document.querySelectorAll('.guide-content h2');
+            let currentSection = sections[0];
+            
+            sections.forEach(section => {
+                if (section.offsetTop - 100 <= scrollPosition) {
+                    currentSection = section;
+                }
+            });
+            
+            // Aggiorna l'item attivo nella sidebar
+            sidebarLinks.forEach(link => {
+                link.classList.remove('active');
+                if (link.getAttribute('href') === '#' + currentSection.id) {
+                    link.classList.add('active');
+                }
+            });
+        });
+    });
+</script>

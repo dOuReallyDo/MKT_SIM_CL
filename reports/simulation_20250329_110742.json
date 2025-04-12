@@ -1,0 +1,219 @@
+{
+  "config": {
+    "market": {
+      "symbols": [
+        "AAPL",
+        "MSFT",
+        "GOOGL"
+      ],
+      "start_date": "2025-01-28",
+      "end_date": "2025-03-29"
+    },
+    "trading": {
+      "initial_capital": 10000.0,
+      "strategy": "random"
+    },
+    "strategies": {
+      "active_strategy": "random",
+      "available_strategies": [
+        "random",
+        "mean_reversion",
+        "trend_following",
+        "value_investing",
+        "neural_network"
+      ],
+      "strategy_params": {
+        "mean_reversion": {
+          "window": 20
+        },
+        "trend_following": {
+          "short_window": 10,
+          "long_window": 50
+        }
+      }
+    }
+  },
+  "summary": {
+    "total_transactions": 15,
+    "buy_transactions": 11,
+    "sell_transactions": 4,
+    "total_buy_value": 7763.873568524894,
+    "total_sell_value": 1910.5893725857675,
+    "net_value": -5853.284195939126
+  },
+  "performances": [
+    {
+      "id": 0,
+      "initial_capital": 10000.0,
+      "current_value": 10171.538831932754,
+      "absolute_return": 171.53883193275396,
+      "percentage_return": 1.7153883193275397
+    },
+    {
+      "id": 1,
+      "initial_capital": 10000.0,
+      "current_value": 10199.504480778372,
+      "absolute_return": 199.50448077837245,
+      "percentage_return": 1.9950448077837246
+    },
+    {
+      "id": 2,
+      "initial_capital": 10000.0,
+      "current_value": 10295.583702563226,
+      "absolute_return": 295.5837025632263,
+      "percentage_return": 2.9558370256322632
+    }
+  ],
+  "transactions": [
+    {
+      "id": "266e4365-54e1-4528-946b-ba968cc3ac53",
+      "date": "2025-01-30",
+      "agent_id": 2,
+      "symbol": "MSFT",
+      "action": "buy",
+      "quantity": 3,
+      "price": 100.23782447167648,
+      "total": 300.7134734150294
+    },
+    {
+      "id": "7f6f1e39-ecf4-4300-b36e-613e534b45a2",
+      "date": "2025-02-10",
+      "agent_id": 2,
+      "symbol": "AAPL",
+      "action": "buy",
+      "quantity": 5,
+      "price": 160.11695762221743,
+      "total": 800.5847881110872
+    },
+    {
+      "id": "3b698ac2-3d99-462a-a47b-0805c08b8f9d",
+      "date": "2025-02-11",
+      "agent_id": 2,
+      "symbol": "MSFT",
+      "action": "buy",
+      "quantity": 9,
+      "price": 97.72332039969449,
+      "total": 879.5098835972503
+    },
+    {
+      "id": "c800c4f6-9d3a-4456-b74e-de7c6b21b5a9",
+      "date": "2025-02-14",
+      "agent_id": 2,
+      "symbol": "AAPL",
+      "action": "sell",
+      "quantity": 3,
+      "price": 178.2106066506042,
+      "total": 534.6318199518126
+    },
+    {
+      "id": "35a53d92-7874-4707-b7ac-abac527ec73a",
+      "date": "2025-02-20",
+      "agent_id": 1,
+      "symbol": "AAPL",
+      "action": "buy",
+      "quantity": 7,
+      "price": 177.54763076027515,
+      "total": 1242.8334153219262
+    },
+    {
+      "id": "1b3db713-3ec1-4bd2-b1d2-73d5e2fc4e05",
+      "date": "2025-02-25",
+      "agent_id": 1,
+      "symbol": "AAPL",
+      "action": "sell",
+      "quantity": 5,
+      "price": 174.27421842716902,
+      "total": 871.3710921358451
+    },
+    {
+      "id": "93395c1d-7327-490d-876e-4cc61611335d",
+      "date": "2025-02-26",
+      "agent_id": 0,
+      "symbol": "GOOGL",
+      "action": "buy",
+      "quantity": 5,
+      "price": 178.09929676653135,
+      "total": 890.4964838326567
+    },
+    {
+      "id": "d514a2a9-7e7c-4bb3-8341-4638a2136385",
+      "date": "2025-03-05",
+      "agent_id": 0,
+      "symbol": "GOOGL",
+      "action": "sell",
+      "quantity": 1,
+      "price": 176.1252343736451,
+      "total": 176.1252343736451
+    },
+    {
+      "id": "92629b04-c7ca-46d3-ac21-96c7e93e069e",
+      "date": "2025-03-11",
+      "agent_id": 0,
+      "symbol": "MSFT",
+      "action": "buy",
+      "quantity": 5,
+      "price": 100.64903991738244,
+      "total": 503.2451995869122
+    },
+    {
+      "id": "47b5ef38-a21b-40db-9402-679ef81f1fcb",
+      "date": "2025-03-17",
+      "agent_id": 2,
+      "symbol": "GOOGL",
+      "action": "buy",
+      "quantity": 4,
+      "price": 187.9310188389541,
+      "total": 751.7240753558164
+    },
+    {
+      "id": "2e86d4fe-407d-4ec5-b400-d8ecd008f813",
+      "date": "2025-03-20",
+      "agent_id": 1,
+      "symbol": "AAPL",
+      "action": "buy",
+      "quantity": 7,
+      "price": 162.85124403887576,
+      "total": 1139.9587082721303
+    },
+    {
+      "id": "254a12f4-9b03-40cd-8684-ee484b6b1577",
+      "date": "2025-03-21",
+      "agent_id": 0,
+      "symbol": "AAPL",
+      "action": "buy",
+      "quantity": 2,
+      "price": 169.2068759317847,
+      "total": 338.4137518635694
+    },
+    {
+      "id": "e60764fc-9eab-479e-8742-5797122a48bc",
+      "date": "2025-03-25",
+      "agent_id": 1,
+      "symbol": "AAPL",
+      "action": "buy",
+      "quantity": 4,
+      "price": 174.47852394856824,
+      "total": 697.914095794273
+    },
+    {
+      "id": "949b2592-b4ce-4d25-ae56-707933a5b21a",
+      "date": "2025-03-27",
+      "agent_id": 0,
+      "symbol": "MSFT",
+      "action": "buy",
+      "quantity": 2,
+      "price": 109.23984668712144,
+      "total": 218.47969337424288
+    },
+    {
+      "id": "2bd38f90-38e5-4d13-8471-ba8e137facac",
+      "date": "2025-03-28",
+      "agent_id": 0,
+      "symbol": "MSFT",
+      "action": "sell",
+      "quantity": 3,
+      "price": 109.48707537482156,
+      "total": 328.4612261244647
+    }
+  ]
+}

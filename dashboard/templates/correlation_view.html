@@ -1,0 +1,205 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<div class="container-fluid">
+    <h1 class="mt-4 mb-4">Analisi delle Correlazioni</h1>
+    
+    <div class="row mb-4">
+        <div class="col-lg-12">
+            <div class="card">
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <h5 class="card-title mb-0">Seleziona Simboli</h5>
+                </div>
+                <div class="card-body">
+                    <form id="correlation-form" class="mb-3">
+                        <div class="row">
+                            <div class="col-md-8">
+                                <div class="form-group mb-3">
+                                    <label for="symbols">Simboli (separati da virgola)</label>
+                                    <input type="text" class="form-control" id="symbols" placeholder="es. AAPL, MSFT, GOOGL" value="{{ symbols|join(', ') if symbols else '' }}">
+                                </div>
+                            </div>
+                            <div class="col-md-2">
+                                <div class="form-group mb-3">
+                                    <label for="start-date">Data Inizio</label>
+                                    <input type="date" class="form-control" id="start-date" value="{{ start_date }}">
+                                </div>
+                            </div>
+                            <div class="col-md-2">
+                                <div class="form-group mb-3">
+                                    <label for="end-date">Data Fine</label>
+                                    <input type="date" class="form-control" id="end-date" value="{{ end_date }}">
+                                </div>
+                            </div>
+                        </div>
+                        <button type="submit" class="btn btn-primary">
+                            <i class="fas fa-sync"></i> Aggiorna
+                        </button>
+                    </form>
+                    
+                    <div class="alert alert-info">
+                        <i class="fas fa-info-circle"></i> Seleziona fino a 6 simboli per un'analisi ottimale. Puoi selezionare i simboli per cui hai scaricato i dati.
+                    </div>
+                    
+                    <div id="symbols-container" class="mb-3">
+                        {% for symbol in available_symbols %}
+                        <span class="badge bg-primary symbol-badge me-2 mb-2" data-symbol="{{ symbol }}">
+                            {{ symbol }} <i class="fas fa-plus symbol-add"></i>
+                        </span>
+                        {% endfor %}
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="row mb-4">
+        <div class="col-lg-12">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="card-title">Matrice di Correlazione</h5>
+                </div>
+                <div class="card-body">
+                    <div id="correlation-matrix" style="height: 600px;"></div>
+                </div>
+                <div class="card-footer">
+                    <small class="text-muted">
+                        La matrice di correlazione mostra la relazione tra i prezzi di chiusura dei diversi titoli.
+                        Valori vicini a 1 (blu) indicano una forte correlazione positiva, valori vicini a -1 (rosso) indicano una forte correlazione negativa,
+                        mentre valori vicini a 0 indicano assenza di correlazione.
+                    </small>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="row">
+        <div class="col-lg-12">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="card-title">Scatter Matrix</h5>
+                </div>
+                <div class="card-body">
+                    <div id="scatter-matrix" style="height: 800px;"></div>
+                </div>
+                <div class="card-footer">
+                    <small class="text-muted">
+                        La scatter matrix mostra la relazione tra coppie di titoli. Ogni punto rappresenta un giorno di trading,
+                        con le coordinate determinate dai prezzi di chiusura dei due titoli. I pattern nei grafici possono rivelare
+                        relazioni lineari o non lineari tra i titoli.
+                    </small>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Plotly.js per i grafici -->
+<script src="https://cdn.plot.ly/plotly-latest.min.js"></script>
+
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        // Elementi DOM
+        const correlationForm = document.getElementById('correlation-form');
+        const symbolsInput = document.getElementById('symbols');
+        const startDateInput = document.getElementById('start-date');
+        const endDateInput = document.getElementById('end-date');
+        const symbolBadges = document.querySelectorAll('.symbol-badge');
+        
+        // Carica i dati iniziali se ci sono simboli
+        if (symbolsInput.value.trim()) {
+            loadCorrelationData();
+        }
+        
+        // Gestisce il form di ricerca
+        correlationForm.addEventListener('submit', function(e) {
+            e.preventDefault();
+            loadCorrelationData();
+        });
+        
+        // Gestisce i click sui badge dei simboli
+        symbolBadges.forEach(badge => {
+            badge.addEventListener('click', function() {
+                const symbol = this.getAttribute('data-symbol');
+                const currentSymbols = symbolsInput.value.split(',').map(s => s.trim()).filter(Boolean);
+                
+                // Se il simbolo è già presente, rimuovilo, altrimenti aggiungilo
+                if (currentSymbols.includes(symbol)) {
+                    const newSymbols = currentSymbols.filter(s => s !== symbol);
+                    symbolsInput.value = newSymbols.join(', ');
+                    badge.classList.remove('bg-success');
+                    badge.classList.add('bg-primary');
+                    badge.querySelector('.symbol-add').classList.remove('fa-check');
+                    badge.querySelector('.symbol-add').classList.add('fa-plus');
+                } else {
+                    currentSymbols.push(symbol);
+                    symbolsInput.value = currentSymbols.join(', ');
+                    badge.classList.remove('bg-primary');
+                    badge.classList.add('bg-success');
+                    badge.querySelector('.symbol-add').classList.remove('fa-plus');
+                    badge.querySelector('.symbol-add').classList.add('fa-check');
+                }
+            });
+        });
+        
+        // Funzione per caricare i dati di correlazione
+        function loadCorrelationData() {
+            const symbols = symbolsInput.value.split(',').map(s => s.trim()).filter(Boolean);
+            const startDate = startDateInput.value;
+            const endDate = endDateInput.value;
+            
+            if (symbols.length < 2) {
+                alert('Seleziona almeno 2 simboli per l\'analisi di correlazione');
+                return;
+            }
+            
+            // Aggiorna lo stato visivo dei badge
+            symbolBadges.forEach(badge => {
+                const badgeSymbol = badge.getAttribute('data-symbol');
+                if (symbols.includes(badgeSymbol)) {
+                    badge.classList.remove('bg-primary');
+                    badge.classList.add('bg-success');
+                    badge.querySelector('.symbol-add').classList.remove('fa-plus');
+                    badge.querySelector('.symbol-add').classList.add('fa-check');
+                } else {
+                    badge.classList.remove('bg-success');
+                    badge.classList.add('bg-primary');
+                    badge.querySelector('.symbol-add').classList.remove('fa-check');
+                    badge.querySelector('.symbol-add').classList.add('fa-plus');
+                }
+            });
+            
+            // Mostra un messaggio di caricamento
+            document.getElementById('correlation-matrix').innerHTML = '<div class="d-flex justify-content-center"><div class="spinner-border text-primary" role="status"><span class="visually-hidden">Caricamento...</span></div></div>';
+            document.getElementById('scatter-matrix').innerHTML = '<div class="d-flex justify-content-center"><div class="spinner-border text-primary" role="status"><span class="visually-hidden">Caricamento...</span></div></div>';
+            
+            // Costruisci l'URL con i parametri
+            const url = `/api/correlation?symbols=${encodeURIComponent(symbols.join(','))}&start_date=${startDate}&end_date=${endDate}`;
+            
+            // Carica i dati
+            fetch(url)
+                .then(response => {
+                    if (!response.ok) {
+                        throw new Error('Errore nel caricamento dei dati');
+                    }
+                    return response.json();
+                })
+                .then(data => {
+                    // Aggiorna i grafici
+                    if (data.correlation_matrix) {
+                        Plotly.newPlot('correlation-matrix', data.correlation_matrix.data, data.correlation_matrix.layout);
+                    }
+                    
+                    if (data.scatter_matrix) {
+                        Plotly.newPlot('scatter-matrix', data.scatter_matrix.data, data.scatter_matrix.layout);
+                    }
+                })
+                .catch(error => {
+                    console.error('Errore:', error);
+                    document.getElementById('correlation-matrix').innerHTML = `<div class="alert alert-danger">Errore nel caricamento dei dati: ${error.message}</div>`;
+                    document.getElementById('scatter-matrix').innerHTML = `<div class="alert alert-danger">Errore nel caricamento dei dati: ${error.message}</div>`;
+                });
+        }
+    });
+</script>
+{% endblock %} 

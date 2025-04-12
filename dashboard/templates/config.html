@@ -1,0 +1,120 @@
+{% extends "base.html" %}
+
+{% block title %}Configurazione{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <h2>Configurazione del Sistema</h2>
+    <p class="lead">Imposta i parametri principali del sistema di simulazione di mercato.</p>
+    
+    <div class="row">
+        <div class="col-md-6">
+            <div class="card">
+                <div class="card-header">
+                    <h5>Parametri di Configurazione</h5>
+                </div>
+                <div class="card-body">
+                    <form id="configForm">
+                        <div class="mb-3">
+                            <label for="symbols" class="form-label">Simboli di Trading (separati da virgola)</label>
+                            <input type="text" class="form-control" id="symbols" name="symbols" 
+                                   value="{{ config['market']['symbols'] | join(', ') }}" required>
+                            <div class="form-text">Inserisci i simboli dei titoli da monitorare</div>
+                        </div>
+                        
+                        <div class="mb-3">
+                            <label for="start_date" class="form-label">Data Inizio</label>
+                            <input type="date" class="form-control" id="start_date" name="start_date" 
+                                   value="{{ start_date }}" required>
+                        </div>
+                        
+                        <div class="mb-3">
+                            <label for="end_date" class="form-label">Data Fine</label>
+                            <input type="date" class="form-control" id="end_date" name="end_date" 
+                                   value="{{ end_date }}" required>
+                        </div>
+                        
+                        <div class="mb-3">
+                            <label for="initial_capital" class="form-label">Capitale Iniziale</label>
+                            <input type="number" class="form-control" id="initial_capital" name="initial_capital" 
+                                   value="{{ config['trading']['initial_capital'] }}" required>
+                        </div>
+                        
+                        <div class="mb-3">
+                            <label for="active_strategy" class="form-label">Strategia Attiva</label>
+                            <select class="form-select" id="active_strategy" name="active_strategy">
+                                {% for key, info in strategies_info.items() %}
+                                    <option value="{{ key }}" 
+                                            {% if key == config.strategies.active_strategy %}selected{% endif %} 
+                                            {% if info.status != 'implemented' %}disabled title="Non ancora implementata"{% endif %}>
+                                        {{ info.class.__name__ }} {% if info.status != 'implemented' %}(Non implementata){% endif %}
+                                    </option>
+                                {% endfor %}
+                            </select>
+                            {% if strategies_info[config.strategies.active_strategy].status != 'implemented' %}
+                                <div class="alert alert-warning mt-2 small">
+                                    Attenzione: La strategia attiva selezionata ({{ strategies_info[config.strategies.active_strategy].class.__name__ }}) non è ancora implementata.
+                                </div>
+                            {% endif %}
+                        </div>
+                        
+                        <div id="strategy-params-container">
+                            <p class="text-muted small">Parametri specifici della strategia (da implementare).</p>
+                        </div>
+                        
+                        <button type="submit" class="btn btn-primary">Salva Configurazione</button>
+                    </form>
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-md-6">
+            <div class="card">
+                <div class="card-header">
+                    <h5>Informazioni di Sistema</h5>
+                </div>
+                <div class="card-body">
+                    <h6>Directory dei Dati</h6>
+                    <p>I dati vengono salvati nella directory <code>../data/</code></p>
+                    
+                    <h6>File di Log</h6>
+                    <p>I log vengono salvati nella directory <code>../logs/</code></p>
+                    
+                    <h6>Modelli Addestrati</h6>
+                    <p>I modelli addestrati vengono salvati nella directory <code>../models/</code></p>
+                    
+                    <h6>Report</h6>
+                    <p>I report vengono salvati nella directory <code>../reports/</code></p>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+{% block scripts %}
+<script>
+document.getElementById('configForm').addEventListener('submit', function(e) {
+    e.preventDefault();
+    
+    const formData = new FormData(this);
+    
+    fetch('/config', {
+        method: 'POST',
+        body: formData
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.error) {
+            alert('Errore: ' + data.error);
+        } else {
+            alert('Configurazione salvata con successo!');
+        }
+    })
+    .catch(error => {
+        console.error('Errore:', error);
+        alert('Si è verificato un errore durante il salvataggio della configurazione');
+    });
+});
+</script>
+{% endblock %}
+{% endblock %} 

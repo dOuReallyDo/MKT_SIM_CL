@@ -1,0 +1,158 @@
+{% extends "base.html" %}
+
+{% block title %}Configurazione Strategia{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <div class="row">
+        <div class="col-md-12">
+            <div class="card">
+                <div class="card-header bg-primary text-white">
+                    <h4 class="mb-0">Configurazione Strategia di Trading</h4>
+                </div>
+                <div class="card-body">
+                    <form id="strategyForm" method="POST" action="{{ url_for('wizard_configure_strategy') }}">
+                        <div class="mb-4">
+                            <h5>Seleziona la strategia di trading</h5>
+                            <p class="text-muted">Scegli la strategia che gli agenti utilizzeranno durante la simulazione</p>
+                        </div>
+
+                        <div class="form-group mb-4">
+                            <label for="strategy">Strategia</label>
+                            <select class="form-control" id="strategy" name="strategy">
+                                {% for strategy_id, strategy_info in strategies_info.items() %}
+                                    <option value="{{ strategy_id }}" 
+                                            {% if strategy_id == active_strategy %}selected{% endif %}
+                                            {% if strategy_info.status != 'implemented' %}disabled{% endif %}>
+                                        {{ strategy_info.name }} 
+                                        {% if strategy_info.status != 'implemented' %}(Non implementata){% endif %}
+                                    </option>
+                                {% endfor %}
+                            </select>
+                        </div>
+
+                        <div id="strategyDescriptions">
+                            {% for strategy_id, strategy_info in strategies_info.items() %}
+                                <div class="strategy-description mb-4 {% if strategy_id != active_strategy %}d-none{% endif %}" data-strategy="{{ strategy_id }}">
+                                    <div class="card">
+                                        <div class="card-header">
+                                            <h5 class="mb-0">{{ strategy_info.name }}</h5>
+                                        </div>
+                                        <div class="card-body">
+                                            <p>{{ strategy_info.description }}</p>
+                                            
+                                            {% if strategy_info.status == 'implemented' %}
+                                                <div class="alert alert-success">
+                                                    <i class="fas fa-check-circle"></i> Questa strategia è completamente implementata e pronta all'uso.
+                                                </div>
+                                                
+                                                {% if strategy_id == 'mean_reversion' %}
+                                                    <div class="form-group">
+                                                        <label for="mean_reversion_window">Finestra Media Mobile</label>
+                                                        <input type="number" class="form-control" id="mean_reversion_window" name="mean_reversion_window" 
+                                                               value="{{ strategy_params.mean_reversion.window if strategy_params.mean_reversion and strategy_params.mean_reversion.window else 20 }}" min="5" max="100">
+                                                        <small class="form-text text-muted">Numero di giorni per il calcolo della media mobile</small>
+                                                    </div>
+                                                    <div class="form-group">
+                                                        <label for="mean_reversion_threshold">Soglia di Deviazione (%)</label>
+                                                        <input type="number" class="form-control" id="mean_reversion_threshold" name="mean_reversion_threshold" 
+                                                               value="{{ strategy_params.mean_reversion.threshold if strategy_params.mean_reversion and strategy_params.mean_reversion.threshold else 2.0 }}" min="0.1" max="10" step="0.1">
+                                                        <small class="form-text text-muted">Percentuale di deviazione dalla media per generare segnali</small>
+                                                    </div>
+                                                {% elif strategy_id == 'trend_following' %}
+                                                    <div class="form-group">
+                                                        <label for="trend_short_window">Finestra Breve</label>
+                                                        <input type="number" class="form-control" id="trend_short_window" name="trend_short_window" 
+                                                               value="{{ strategy_params.trend_following.short_window if strategy_params.trend_following and strategy_params.trend_following.short_window else 10 }}" min="2" max="50">
+                                                        <small class="form-text text-muted">Numero di giorni per la media mobile breve</small>
+                                                    </div>
+                                                    <div class="form-group">
+                                                        <label for="trend_long_window">Finestra Lunga</label>
+                                                        <input type="number" class="form-control" id="trend_long_window" name="trend_long_window" 
+                                                               value="{{ strategy_params.trend_following.long_window if strategy_params.trend_following and strategy_params.trend_following.long_window else 50 }}" min="10" max="200">
+                                                        <small class="form-text text-muted">Numero di giorni per la media mobile lunga</small>
+                                                    </div>
+                                                {% elif strategy_id == 'value_investing' %}
+                                                    <div class="form-group">
+                                                        <label for="value_pe_threshold">Soglia P/E</label>
+                                                        <input type="number" class="form-control" id="value_pe_threshold" name="value_pe_threshold" 
+                                                               value="{{ strategy_params.value_investing.pe_threshold if strategy_params.value_investing and strategy_params.value_investing.pe_threshold else 15.0 }}" min="1" max="50" step="0.1">
+                                                        <small class="form-text text-muted">Soglia del rapporto prezzo/utili</small>
+                                                    </div>
+                                                    <div class="form-group">
+                                                        <label for="value_pb_threshold">Soglia P/B</label>
+                                                        <input type="number" class="form-control" id="value_pb_threshold" name="value_pb_threshold" 
+                                                               value="{{ strategy_params.value_investing.pb_threshold if strategy_params.value_investing and strategy_params.value_investing.pb_threshold else 1.5 }}" min="0.1" max="10" step="0.1">
+                                                        <small class="form-text text-muted">Soglia del rapporto prezzo/valore contabile</small>
+                                                    </div>
+                                                {% elif strategy_id == 'neural_network' %}
+                                                    <div class="form-group">
+                                                        <label for="nn_model_type">Tipo di Modello</label>
+                                                        <select class="form-control" id="nn_model_type" name="nn_model_type">
+                                                            <option value="lstm" {% if strategy_params.neural_network and strategy_params.neural_network.model_type == 'lstm' %}selected{% endif %}>LSTM</option>
+                                                            <option value="cnn" {% if strategy_params.neural_network and strategy_params.neural_network.model_type == 'cnn' %}selected{% endif %}>CNN</option>
+                                                            <option value="transformer" {% if strategy_params.neural_network and strategy_params.neural_network.model_type == 'transformer' %}selected{% endif %}>Transformer</option>
+                                                        </select>
+                                                        <small class="form-text text-muted">Tipo di rete neurale da utilizzare</small>
+                                                    </div>
+                                                    <div class="form-group">
+                                                        <label for="nn_sequence_length">Lunghezza Sequenza</label>
+                                                        <input type="number" class="form-control" id="nn_sequence_length" name="nn_sequence_length" 
+                                                               value="{{ strategy_params.neural_network.sequence_length if strategy_params.neural_network and strategy_params.neural_network.sequence_length else 10 }}" min="5" max="50">
+                                                        <small class="form-text text-muted">Numero di giorni da considerare per la previsione</small>
+                                                    </div>
+                                                    <div class="form-group">
+                                                        <label for="nn_threshold">Soglia di Segnale (%)</label>
+                                                        <input type="number" class="form-control" id="nn_threshold" name="nn_threshold" 
+                                                               value="{{ strategy_params.neural_network.threshold if strategy_params.neural_network and strategy_params.neural_network.threshold else 1.0 }}" min="0.1" max="10" step="0.1">
+                                                        <small class="form-text text-muted">Percentuale di variazione prevista per generare segnali</small>
+                                                    </div>
+                                                {% endif %}
+                                            {% else %}
+                                                <div class="alert alert-warning">
+                                                    <i class="fas fa-exclamation-triangle"></i> Questa strategia non è ancora completamente implementata.
+                                                </div>
+                                            {% endif %}
+                                        </div>
+                                    </div>
+                                </div>
+                            {% endfor %}
+                        </div>
+
+                        <div class="d-flex justify-content-between mt-4">
+                            <a href="{{ url_for('wizard_configure_capital') }}" class="btn btn-secondary">Indietro</a>
+                            <button type="submit" class="btn btn-primary">Avanti</button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const strategySelect = document.getElementById('strategy');
+    const strategyDescriptions = document.querySelectorAll('.strategy-description');
+    
+    // Mostra la descrizione della strategia selezionata
+    function updateStrategyDescription() {
+        const selectedStrategy = strategySelect.value;
+        
+        strategyDescriptions.forEach(desc => {
+            if (desc.getAttribute('data-strategy') === selectedStrategy) {
+                desc.classList.remove('d-none');
+            } else {
+                desc.classList.add('d-none');
+            }
+        });
+    }
+    
+    // Aggiorna quando la strategia cambia
+    strategySelect.addEventListener('change', updateStrategyDescription);
+    
+    // Aggiorna all'avvio
+    updateStrategyDescription();
+});
+</script>
+{% endblock %}

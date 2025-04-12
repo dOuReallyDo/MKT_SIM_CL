@@ -1,0 +1,30 @@
+{% extends "base.html" %}
+
+{% block title %}Errore Interno - MKT SIM{% endblock %}
+
+{% block content %}
+<div class="container mt-5">
+    <div class="row">
+        <div class="col-md-8 offset-md-2 text-center">
+            <div class="card shadow">
+                <div class="card-body">
+                    <h1 class="display-1 text-danger">500</h1>
+                    <h2 class="mb-4">Errore Interno del Server</h2>
+                    <p class="lead">Si è verificato un errore durante l'elaborazione della richiesta.</p>
+                    <hr>
+                    <p>I nostri tecnici sono stati informati del problema e stanno lavorando per risolverlo.</p>
+                    <p>Puoi provare a ricaricare la pagina o tornare alla dashboard.</p>
+                    <div class="mt-4">
+                        <button onclick="window.location.reload()" class="btn btn-outline-primary me-2">
+                            <i class="fas fa-sync-alt me-2"></i>Ricarica Pagina
+                        </button>
+                        <a href="{{ url_for('index') }}" class="btn btn-primary">
+                            <i class="fas fa-home me-2"></i>Torna alla Dashboard
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

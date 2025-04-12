@@ -1,0 +1,199 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}MKT SIM{% endblock %}</title>
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>📈</text></svg>">
+    
+    <!-- CSS -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+    <link href="{{ url_for('static', filename='style.css') }}" rel="stylesheet">
+    <link rel="stylesheet" href="{{ url_for('static', filename='dark_mode.css') }}" id="dark-mode-stylesheet" media="(prefers-color-scheme: dark)">
+    
+    <!-- JavaScript -->
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.6.0/socket.io.min.js"></script>
+</head>
+<body class="d-flex flex-column min-vh-100">
+    <!-- Navbar -->
+    <nav class="navbar navbar-expand-lg navbar-dark bg-dark sticky-top">
+        <div class="container-fluid">
+            <a class="navbar-brand" href="{{ url_for('index') }}"><i class="fas fa-chart-line me-2"></i>MKT SIM Dashboard</a>
+            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav" aria-controls="navbarNav" aria-expanded="false" aria-label="Toggle navigation">
+                <span class="navbar-toggler-icon"></span>
+            </button>
+            <div class="collapse navbar-collapse" id="navbarNav">
+                <ul class="navbar-nav me-auto mb-2 mb-lg-0">
+                    <li class="nav-item">
+                        <a class="nav-link {% if request.endpoint == 'index' %}active{% endif %}" href="{{ url_for('index') }}">Home</a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link {% if request.endpoint == 'data_collection' %}active{% endif %}" href="{{ url_for('data_collection') }}">Dati</a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link {% if request.endpoint == 'config' %}active{% endif %}" href="{{ url_for('config') }}">Configurazione</a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link {% if request.endpoint == 'simulation' %}active{% endif %}" href="{{ url_for('simulation') }}">Simulazione</a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link {% if request.endpoint == 'reports' %}active{% endif %}" href="{{ url_for('reports') }}">Report</a>
+                    </li>
+                    <li class="nav-item dropdown">
+                        <a class="nav-link dropdown-toggle" href="#" role="button" data-bs-toggle="dropdown">
+                            Wizard
+                        </a>
+                        <ul class="dropdown-menu">
+                            <li><a class="dropdown-item" href="/wizard">Wizard Completo</a></li>
+                            <li><hr class="dropdown-divider"></li>
+                            <li><a class="dropdown-item" href="/wizard/configure_symbols">Configurazione Simboli</a></li>
+                            <li><a class="dropdown-item" href="/wizard/configure_time_period">Configurazione Periodo</a></li>
+                            <li><a class="dropdown-item" href="/wizard/configure_capital">Configurazione Capitale</a></li>
+                            <li><a class="dropdown-item" href="/wizard/configure_strategy">Configurazione Strategia</a></li>
+                            <li><a class="dropdown-item" href="/wizard/data_collection">Raccolta Dati</a></li>
+                            <li><a class="dropdown-item" href="/wizard/run_simulation">Esegui Simulazione</a></li>
+                        </ul>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link {% if request.path == '/available_data' %}active{% endif %}" href="/available_data">Dati Disponibili</a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link {% if request.path == '/training' %}active{% endif %}" href="/training">Addestramento</a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link {% if request.path == '/prediction' %}active{% endif %}" href="/prediction">Previsioni</a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link {% if request.path == '/neural_network' or request.path == '/neural_network_training' %}active{% endif %}" href="/neural_network">Reti Neurali</a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link {% if request.path == '/cache' %}active{% endif %}" href="{{ url_for('cache_view') }}">
+                            <i class="fas fa-memory"></i> Cache
+                        </a>
+                    </li>
+                </ul>
+                <ul class="navbar-nav">
+                    <li class="nav-item">
+                        <a class="nav-link" href="/user_guide">Guida Utente</a>
+                    </li>
+                </ul>
+                <div class="form-check form-switch text-light ms-auto">
+                    <input class="form-check-input" type="checkbox" role="switch" id="darkModeSwitch">
+                    <label class="form-check-label" for="darkModeSwitch">
+                        <i class="fas fa-moon"></i> / <i class="fas fa-sun"></i>
+                    </label>
+                </div>
+                <span id="connection-status" class="navbar-text ms-3 small">
+                    <i class="fas fa-circle text-warning"></i> Connecting...
+                </span>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Contenuto principale -->
+    <main class="flex-grow-1 container py-4">
+        <div id="alerts-container">
+            {% with messages = get_flashed_messages(with_categories=true) %}
+                {% if messages %}
+                    {% for category, message in messages %}
+                        <div class="alert alert-{{ category }} alert-dismissible fade show" role="alert">
+                            {{ message }}
+                            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                        </div>
+                    {% endfor %}
+                {% endif %}
+            {% endwith %}
+        </div>
+        
+        {% block content %}{% endblock %}
+    </main>
+
+    <!-- Footer -->
+    <footer class="footer mt-auto py-3 bg-light">
+        <div class="container">
+            <div class="row">
+                <div class="col-md-6">
+                    <h5>MKT SIM - Trading Algoritmico</h5>
+                    <p>Sistema integrato di simulazione del mercato e trading algoritmico basato su reti neurali.</p>
+                </div>
+                <div class="col-md-3">
+                    <h5>Link Rapidi</h5>
+                    <ul class="list-unstyled">
+                        <li><a href="/config">Configurazione</a></li>
+                        <li><a href="/data_collection">Raccolta Dati</a></li>
+                        <li><a href="/simulation">Simulazione</a></li>
+                    </ul>
+                </div>
+                <div class="col-md-3">
+                    <h5>Risorse</h5>
+                    <ul class="list-unstyled">
+                        <li><a href="/user_guide">Guida Utente</a></li>
+                        <li><a href="/wizard">Wizard Interattivo</a></li>
+                        <li><a href="/training">Addestramento IA</a></li>
+                        <li><a href="/self_play">Self-Play IA</a></li>
+                    </ul>
+                </div>
+            </div>
+            <hr>
+            <div class="text-center">
+                <p class="mb-0">&copy; 2024 MKT SIM - Trading Algoritmico</p>
+            </div>
+        </div>
+    </footer>
+
+    {% block scripts %}{% endblock %}
+
+    <script>
+        const darkModeSwitch = document.getElementById('darkModeSwitch');
+        const body = document.body;
+        const darkModeStylesheet = document.getElementById('dark-mode-stylesheet');
+
+        const applyTheme = (isDark) => {
+            if (isDark) {
+                body.classList.add('dark-mode');
+                darkModeStylesheet.media = 'all';
+                if(darkModeSwitch) darkModeSwitch.checked = true;
+                document.querySelector('.footer')?.classList.remove('bg-light');
+                document.querySelector('.footer')?.classList.add('bg-dark', 'text-light');
+            } else {
+                body.classList.remove('dark-mode');
+                darkModeStylesheet.media = 'not all';
+                if(darkModeSwitch) darkModeSwitch.checked = false;
+                document.querySelector('.footer')?.classList.add('bg-light');
+                document.querySelector('.footer')?.classList.remove('bg-dark', 'text-light');
+            }
+        };
+
+        const savedTheme = localStorage.getItem('theme');
+        const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+
+        let currentThemeIsDark = false;
+        if (savedTheme === 'dark') {
+            currentThemeIsDark = true;
+        } else if (savedTheme === 'light') {
+            currentThemeIsDark = false;
+        } else {
+            currentThemeIsDark = prefersDark;
+        }
+
+        applyTheme(currentThemeIsDark);
+        
+        if (darkModeSwitch) {
+             darkModeSwitch.addEventListener('change', () => {
+                const isDark = darkModeSwitch.checked;
+                applyTheme(isDark);
+                localStorage.setItem('theme', isDark ? 'dark' : 'light');
+            });
+        }
+
+        window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', event => {
+            if (!localStorage.getItem('theme')) {
+                applyTheme(event.matches);
+            }
+        });
+    </script>
+</body>
+</html>

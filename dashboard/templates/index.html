@@ -1,0 +1,258 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="row">
+        <!-- Sidebar -->
+        <div class="col-md-3 col-lg-2 d-md-block bg-dark sidebar collapse">
+            <div class="position-sticky pt-3">
+                <ul class="nav flex-column">
+                    <li class="nav-item">
+                        <a class="nav-link active text-white" href="#" data-tab="wizard">
+                            <i class="fas fa-magic"></i> Wizard
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link text-white" href="#" data-tab="data_collection">
+                            <i class="fas fa-database"></i> Data Collection
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link text-white" href="#" data-tab="simulation">
+                            <i class="fas fa-chart-line"></i> Market Simulation
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link text-white" href="#" data-tab="neural_network">
+                            <i class="fas fa-brain"></i> Neural Network
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link text-white" href="#" data-tab="self_play">
+                            <i class="fas fa-robot"></i> Self-Play
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link text-white" href="#" data-tab="predictions">
+                            <i class="fas fa-chart-bar"></i> Predictions
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link text-white" href="#" data-tab="reports">
+                            <i class="fas fa-file-alt"></i> Reports
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link text-white" href="#" data-tab="config">
+                            <i class="fas fa-cog"></i> Configuration
+                        </a>
+                    </li>
+                </ul>
+            </div>
+        </div>
+
+        <!-- Main content -->
+        <main class="col-md-9 ms-sm-auto col-lg-10 px-md-4">
+            <div class="d-flex justify-content-between flex-wrap flex-md-nowrap align-items-center pt-3 pb-2 mb-3 border-bottom">
+                <h1 class="h2">MKT_SIM_CL Dashboard</h1>
+                <div class="btn-toolbar mb-2 mb-md-0">
+                    <div class="btn-group me-2">
+                        <button type="button" class="btn btn-sm btn-outline-secondary" id="refresh-btn">
+                            <i class="fas fa-sync"></i> Refresh
+                        </button>
+                        <button type="button" class="btn btn-sm btn-outline-secondary" id="help-btn">
+                            <i class="fas fa-question-circle"></i> Help
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Tab content -->
+            <div class="tab-content">
+                <!-- Wizard Tab -->
+                <div class="tab-pane fade show active" id="wizard-tab">
+                    <h2>Wizard Interattivo</h2>
+                    <p>Questa procedura guidata ti aiuterà a configurare e utilizzare il sistema di simulazione del mercato azionario.</p>
+                    <div class="alert alert-info">
+                        <i class="fas fa-info-circle"></i> Vai alla <a href="{{ url_for('wizard_configure_symbols') }}" class="alert-link">pagina del wizard</a> per iniziare la configurazione.
+                    </div>
+                </div>
+
+                <!-- Data Collection Tab -->
+                <div class="tab-pane fade" id="data_collection-tab">
+                    <h2>Raccolta Dati</h2>
+                    <p>Qui puoi scaricare i dati storici necessari per la simulazione.</p>
+                    <div class="alert alert-info">
+                        <i class="fas fa-info-circle"></i> Vai alla <a href="{{ url_for('data_collection') }}" class="alert-link">pagina di raccolta dati</a> per iniziare.
+                    </div>
+                </div>
+
+                <!-- Market Simulation Tab -->
+                <div class="tab-pane fade" id="simulation-tab">
+                    <h2>Simulazione di Mercato</h2>
+                    <p>Qui puoi eseguire simulazioni di mercato con diverse strategie di trading.</p>
+                    <div class="alert alert-info">
+                        <i class="fas fa-info-circle"></i> Vai alla <a href="{{ url_for('simulation') }}" class="alert-link">pagina di simulazione</a> per iniziare.
+                    </div>
+                </div>
+
+                <!-- Neural Network Tab -->
+                <div class="tab-pane fade" id="neural_network-tab">
+                    <h2>Addestramento Reti Neurali</h2>
+                    <p>Qui puoi addestrare modelli di reti neurali per la previsione dei prezzi.</p>
+                    <div class="alert alert-info">
+                        <i class="fas fa-info-circle"></i> Vai alla <a href="{{ url_for('training') }}" class="alert-link">pagina di addestramento</a> per iniziare.
+                    </div>
+                </div>
+
+                <!-- Self-Play Tab -->
+                <div class="tab-pane fade" id="self_play-tab">
+                    <h2>Self-Play</h2>
+                    <p>Qui puoi utilizzare tecniche di self-play per migliorare i modelli di trading.</p>
+                    <div class="alert alert-info">
+                        <i class="fas fa-info-circle"></i> Vai alla <a href="{{ url_for('self_play') }}" class="alert-link">pagina di self-play</a> per iniziare.
+                    </div>
+                </div>
+
+                <!-- Predictions Tab -->
+                <div class="tab-pane fade" id="predictions-tab">
+                    <h2>Previsioni</h2>
+                    <p>Qui puoi utilizzare i modelli addestrati per fare previsioni sui prezzi futuri.</p>
+                    <div class="alert alert-info">
+                        <i class="fas fa-info-circle"></i> Vai alla <a href="{{ url_for('prediction') }}" class="alert-link">pagina di previsione</a> per iniziare.
+                    </div>
+                </div>
+
+                <!-- Reports Tab -->
+                <div class="tab-pane fade" id="reports-tab">
+                    <h2>Report</h2>
+                    <p>Qui puoi visualizzare i report delle simulazioni eseguite.</p>
+                    <div class="alert alert-info">
+                        <i class="fas fa-info-circle"></i> Vai alla <a href="{{ url_for('reports') }}" class="alert-link">pagina dei report</a> per iniziare.
+                    </div>
+                </div>
+
+                <!-- Configuration Tab -->
+                <div class="tab-pane fade" id="config-tab">
+                    <h2>Configurazione</h2>
+                    <p>Qui puoi configurare i parametri del sistema.</p>
+                    <div class="alert alert-info">
+                        <i class="fas fa-info-circle"></i> Vai alla <a href="{{ url_for('config') }}" class="alert-link">pagina di configurazione</a> per iniziare.
+                    </div>
+                </div>
+            </div>
+        </main>
+    </div>
+</div>
+
+<!-- Status Bar -->
+<div class="status-bar fixed-bottom bg-dark text-white py-2">
+    <div class="container-fluid">
+        <div class="row">
+            <div class="col-md-3">
+                <span id="connection-status">
+                    <i class="fas fa-circle text-danger"></i> Disconnected
+                </span>
+            </div>
+            <div class="col-md-3">
+                <span id="last-update">Last update: Never</span>
+            </div>
+            <div class="col-md-3">
+                <span id="system-status">System Status: Idle</span>
+            </div>
+            <div class="col-md-3 text-end">
+                <span id="version">Version: 1.0.0</span>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Help Modal -->
+<div class="modal fade" id="helpModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Help & Documentation</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                {% include "user_guide.html" %}
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script src="{{ url_for('static', filename='main.js') }}"></script>
+<script>
+    // Inizializzazione WebSocket
+    // Utilizziamo la variabile socket già dichiarata in main.js
+    
+    // Gestione degli eventi WebSocket
+    if (window.socket) {
+        window.socket.on('connect', function() {
+            $('#connection-status').html('<i class="fas fa-circle text-success"></i> Connected');
+            window.socket.emit('subscribe', { tab: 'wizard' });
+        });
+    }
+    
+    if (window.socket) {
+        window.socket.on('disconnect', function() {
+            $('#connection-status').html('<i class="fas fa-circle text-danger"></i> Disconnected');
+        });
+        
+        window.socket.on('dashboard_state', function(data) {
+            updateDashboardState(data);
+        });
+        
+        window.socket.on('tab_state', function(data) {
+            updateTabState(data);
+        });
+    }
+    
+    // Gestione dei tab
+    $('.nav-link').on('click', function(e) {
+        e.preventDefault();
+        const tab = $(this).data('tab');
+        
+        // Aggiorna la classe active
+        $('.nav-link').removeClass('active');
+        $(this).addClass('active');
+        
+        // Mostra il contenuto del tab
+        $('.tab-pane').removeClass('show active');
+        $(`#${tab}-tab`).addClass('show active');
+        
+        // Sottoscrivi agli eventi del tab
+        if (window.socket) {
+            window.socket.emit('unsubscribe', { tab: $('.nav-link.active').data('tab') });
+            window.socket.emit('subscribe', { tab: tab });
+        }
+    });
+    
+    // Funzioni di aggiornamento
+    function updateDashboardState(data) {
+        $('#last-update').text(`Last update: ${new Date().toLocaleString()}`);
+        $('#system-status').text(`System Status: ${data.system_status}`);
+    }
+    
+    function updateTabState(data) {
+        // Aggiorna lo stato del tab corrente
+        const currentTab = $('.nav-link.active').data('tab');
+        // Implementa la logica di aggiornamento specifica per ogni tab
+    }
+    
+    // Gestione del pulsante refresh
+    $('#refresh-btn').on('click', function() {
+        if (window.socket) {
+            window.socket.emit('refresh_state');
+        }
+    });
+    
+    // Gestione del pulsante help
+    $('#help-btn').on('click', function() {
+        $('#helpModal').modal('show');
+    });
+</script>
+{% endblock %}

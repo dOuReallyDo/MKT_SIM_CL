@@ -1,0 +1,85 @@
+{
+    "market": {
+        "symbols": [
+            "AAPL",
+            "MSFT",
+            "META"
+        ],
+        "start_date": "2024-04-06",
+        "end_date": "2025-04-06",
+        "timeframes": [
+            "1d",
+            "1h"
+        ],
+        "default_timeframe": "1d",
+        "interval": "1d"
+    },
+    "trading": {
+        "initial_capital": 100000.0,
+        "order_types": [
+            "market",
+            "limit",
+            "stop"
+        ],
+        "default_order_type": "market",
+        "position_sizing": {
+            "default_quantity": 10,
+            "max_position_size": 0.2
+        },
+        "risk_management": {
+            "use_stop_loss": true,
+            "stop_loss_percentage": 2.0,
+            "use_take_profit": true,
+            "take_profit_percentage": 5.0,
+            "max_daily_loss": 1000,
+            "risk_level": 5
+        },
+        "max_agents": 5,
+        "use_mixed_strategies": false,
+        "use_variable_capital": false
+    },
+    "strategies": {
+        "active_strategy": "trend_following",
+        "available_strategies": [
+            "random",
+            "mean_reversion",
+            "trend_following",
+            "value_investing",
+            "neural_network"
+        ],
+        "strategy_params": {
+            "trend_following": {
+                "short_window": 10,
+                "long_window": 50
+            },
+            "mean_reversion": {
+                "window": 20
+            },
+            "neural_network": {
+                "model_type": "lstm",
+                "sequence_length": 10
+            }
+        }
+    },
+    "paths": {
+        "data_dir": "./data",
+        "models_dir": "./models",
+        "logs_dir": "./logs",
+        "reports_dir": "./reports"
+    },
+    "api": {
+        "alpha_vantage": {
+            "api_key": "",
+            "base_url": "https://www.alphavantage.co/query"
+        },
+        "yfinance": {
+            "use_proxy": false,
+            "proxy_url": ""
+        }
+    },
+    "security": {
+        "encryption_key": "",
+        "use_ssl": true,
+        "verify_certificates": true
+    }
+}

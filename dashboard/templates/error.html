@@ -1,0 +1,20 @@
+{% extends "base.html" %}
+
+{% block title %}Errore{% endblock %}
+
+{% block content %}
+<div class="container mt-5">
+    <div class="row">
+        <div class="col-md-12">
+            <div class="alert alert-danger" role="alert">
+                <h4 class="alert-heading">Si è verificato un errore!</h4>
+                <p>{{ error }}</p>
+                <hr>
+                <p class="mb-0">
+                    <a href="{{ url_for('index') }}" class="btn btn-primary">Torna alla Home</a>
+                </p>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %} 

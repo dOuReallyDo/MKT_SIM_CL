@@ -1,0 +1,173 @@
+{% extends "base.html" %}
+
+{% block title %}Configurazione Completata{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <div class="row">
+        <div class="col-md-12">
+            <div class="card">
+                <div class="card-header bg-success text-white">
+                    <h4 class="mb-0">Configurazione Completata</h4>
+                </div>
+                <div class="card-body">
+                    <div class="mb-4">
+                        <h5>Riepilogo della configurazione</h5>
+                        <p class="text-muted">Ecco un riepilogo delle impostazioni che hai configurato</p>
+                    </div>
+
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="card mb-4">
+                                <div class="card-header">
+                                    <h5 class="mb-0">Simboli</h5>
+                                </div>
+                                <div class="card-body">
+                                    <ul class="list-group">
+                                        {% for symbol in config.market.symbols %}
+                                            <li class="list-group-item">{{ symbol }}</li>
+                                        {% endfor %}
+                                    </ul>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="card mb-4">
+                                <div class="card-header">
+                                    <h5 class="mb-0">Periodo Temporale</h5>
+                                </div>
+                                <div class="card-body">
+                                    <p><strong>Data di Inizio:</strong> {{ config.market.start_date }}</p>
+                                    <p><strong>Data di Fine:</strong> {{ config.market.end_date }}</p>
+                                    <p><strong>Intervallo:</strong> {{ config.market.interval }}</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="card mb-4">
+                                <div class="card-header">
+                                    <h5 class="mb-0">Capitale</h5>
+                                </div>
+                                <div class="card-body">
+                                    <p><strong>Capitale Iniziale:</strong> ${{ '{:,.2f}'.format(config.trading.initial_capital) }}</p>
+                                    
+                                    {% if config.trading.risk_management %}
+                                        <p><strong>Stop Loss:</strong> 
+                                            {% if config.trading.risk_management.use_stop_loss %}
+                                                {{ config.trading.risk_management.stop_loss_percentage }}%
+                                            {% else %}
+                                                Non utilizzato
+                                            {% endif %}
+                                        </p>
+                                        <p><strong>Take Profit:</strong> 
+                                            {% if config.trading.risk_management.use_take_profit %}
+                                                {{ config.trading.risk_management.take_profit_percentage }}%
+                                            {% else %}
+                                                Non utilizzato
+                                            {% endif %}
+                                        </p>
+                                    {% endif %}
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="card mb-4">
+                                <div class="card-header">
+                                    <h5 class="mb-0">Strategia</h5>
+                                </div>
+                                <div class="card-body">
+                                    <p><strong>Strategia:</strong> {{ strategy_name }}</p>
+                                    
+                                    {% if config.strategies.strategy_params %}
+                                        <div class="mt-3">
+                                            <h6>Parametri:</h6>
+                                            <ul class="list-group">
+                                                {% for param_name, param_value in strategy_params.items() %}
+                                                    <li class="list-group-item">
+                                                        <strong>{{ param_name }}:</strong> {{ param_value }}
+                                                    </li>
+                                                {% endfor %}
+                                            </ul>
+                                        </div>
+                                    {% endif %}
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="row">
+                        <div class="col-md-12">
+                            <div class="card mb-4">
+                                <div class="card-header">
+                                    <h5 class="mb-0">Agenti</h5>
+                                </div>
+                                <div class="card-body">
+                                    <p><strong>Numero di Agenti:</strong> {{ config.trading.max_agents }}</p>
+                                    
+                                    {% if config.trading.use_mixed_strategies %}
+                                        <div class="mt-3">
+                                            <h6>Distribuzione delle Strategie:</h6>
+                                            <ul class="list-group">
+                                                {% for strategy_id, percentage in config.trading.strategy_distribution.items() %}
+                                                    <li class="list-group-item">
+                                                        <strong>{{ strategies_info[strategy_id].name }}:</strong> {{ percentage }}%
+                                                    </li>
+                                                {% endfor %}
+                                            </ul>
+                                        </div>
+                                    {% endif %}
+                                    
+                                    {% if config.trading.use_variable_capital %}
+                                        <div class="mt-3">
+                                            <h6>Capitale Variabile:</h6>
+                                            <p><strong>Minimo:</strong> ${{ '{:,.2f}'.format(config.trading.min_capital) }}</p>
+                                            <p><strong>Massimo:</strong> ${{ '{:,.2f}'.format(config.trading.max_capital) }}</p>
+                                        </div>
+                                    {% endif %}
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="alert alert-info">
+                        <i class="fas fa-info-circle"></i> Puoi salvare questa configurazione e avviare la simulazione, oppure tornare indietro per modificare le impostazioni.
+                    </div>
+
+                    <div class="d-flex justify-content-between mt-4">
+                        <a href="{{ url_for('wizard_configure_agents') }}" class="btn btn-secondary">Indietro</a>
+                        <div>
+                            <form id="saveConfigForm" method="POST" action="{{ url_for('wizard_save_config') }}" class="d-inline">
+                                <button type="submit" name="action" value="save" class="btn btn-primary">Salva Configurazione</button>
+                                <button type="submit" name="action" value="save_and_run" class="btn btn-success">Salva e Avvia Simulazione</button>
+                            </form>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Gestione del form di salvataggio
+    const saveConfigForm = document.getElementById('saveConfigForm');
+    
+    saveConfigForm.addEventListener('submit', function(event) {
+        const action = event.submitter.value;
+        
+        if (action === 'save_and_run') {
+            // Aggiungi un campo nascosto per indicare che si vuole avviare la simulazione
+            const runSimulationInput = document.createElement('input');
+            runSimulationInput.type = 'hidden';
+            runSimulationInput.name = 'run_simulation';
+            runSimulationInput.value = 'true';
+            this.appendChild(runSimulationInput);
+        }
+    });
+});
+</script>
+{% endblock %}

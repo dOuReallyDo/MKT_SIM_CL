@@ -1,0 +1,109 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="container mt-4">
+    <h2>Addestramento Rete Neurale</h2>
+    
+    <div class="row">
+        <div class="col-md-6">
+            <div class="card">
+                <div class="card-body">
+                    <h5 class="card-title">Parametri di Addestramento</h5>
+                    <form method="POST">
+                        <div class="form-group">
+                            <label for="symbols">Simboli (separati da virgola)</label>
+                            <input type="text" class="form-control" id="symbols" name="symbols" 
+                                   value="{{ available_symbols | join(', ') }}" required>
+                            <small class="form-text text-muted">Seleziona i simboli dai dati disponibili</small>
+                        </div>
+                        
+                        <div class="form-group">
+                            <label for="start_date">Data Inizio</label>
+                            <input type="date" class="form-control" id="start_date" name="start_date" 
+                                   value="{{ default_start }}" required>
+                        </div>
+                        
+                        <div class="form-group">
+                            <label for="end_date">Data Fine</label>
+                            <input type="date" class="form-control" id="end_date" name="end_date" 
+                                   value="{{ default_end }}" required>
+                        </div>
+                        
+                        <div class="form-group">
+                            <label for="model_type">Tipo di Modello</label>
+                            <select class="form-control" id="model_type" name="model_type" required>
+                                <option value="lstm">LSTM</option>
+                                <option value="gru">GRU</option>
+                                <option value="transformer">Transformer</option>
+                            </select>
+                        </div>
+                        
+                        <div class="form-group">
+                            <label for="epochs">Numero di Epoche</label>
+                            <input type="number" class="form-control" id="epochs" name="epochs" 
+                                   value="100" min="1" max="1000" required>
+                        </div>
+                        
+                        <button type="submit" class="btn btn-primary">Avvia Addestramento</button>
+                    </form>
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-md-6">
+            <div class="card">
+                <div class="card-body">
+                    <h5 class="card-title">Dati Disponibili</h5>
+                    {% if available_symbols %}
+                        <div class="list-group">
+                            {% for symbol in available_symbols %}
+                                <div class="list-group-item">
+                                    <div class="d-flex justify-content-between align-items-center">
+                                        <span>{{ symbol }}</span>
+                                        <span class="badge badge-success">Disponibile</span>
+                                    </div>
+                                </div>
+                            {% endfor %}
+                        </div>
+                    {% else %}
+                        <p class="text-muted">Nessun dato disponibile per l'addestramento</p>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    {% if status %}
+        <div class="alert alert-info mt-3">
+            {{ status | safe }}
+        </div>
+    {% endif %}
+    
+    {% if results %}
+        <div class="card mt-3">
+            <div class="card-body">
+                <h5 class="card-title">Risultati Addestramento</h5>
+                
+                <div class="row">
+                    <div class="col-md-6">
+                        <h6>Metriche</h6>
+                        <ul class="list-group">
+                            <li class="list-group-item">
+                                MSE: {{ "%.6f"|format(results.metrics.mse) }}
+                            </li>
+                            <li class="list-group-item">
+                                RMSE: {{ "%.6f"|format(results.metrics.rmse) }}
+                            </li>
+                        </ul>
+                    </div>
+                    
+                    <div class="col-md-6">
+                        <h6>Grafico delle Perdite</h6>
+                        <img src="data:image/png;base64,{{ results.chart }}" class="img-fluid" alt="Grafico delle Perdite">
+                    </div>
+                </div>
+            </div>
+        </div>
+    {% endif %}
+</div>
+{% endblock %}

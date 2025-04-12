@@ -1,0 +1,748 @@
+{% extends "base.html" %}
+
+{% block title %}Addestramento Reti Neurali{% endblock %}
+
+{% block content %}
+<div class="container-fluid tab-pane fade show active" id="neural-network-tab-content" role="tabpanel" aria-labelledby="neural-network-nav-link">
+    <h1 class="mt-4 mb-4">Addestramento e Utilizzo di Reti Neurali</h1>
+    
+    <div class="row mb-4">
+        <div class="col-lg-4">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="card-title">Configurazione Addestramento</h5>
+                </div>
+                <div class="card-body">
+                    <form id="training-form">
+                        <div class="mb-3">
+                            <label for="symbol" class="form-label">Simbolo</label>
+                            <select class="form-select" id="symbol" required>
+                                {% for symbol in available_symbols %}
+                                    <option value="{{ symbol }}">{{ symbol }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        
+                        <div class="mb-3">
+                            <label for="start-date" class="form-label">Data di Inizio</label>
+                            <input type="date" class="form-control" id="start-date" value="{{ default_start_date }}" required>
+                        </div>
+                        
+                        <div class="mb-3">
+                            <label for="end-date" class="form-label">Data di Fine</label>
+                            <input type="date" class="form-control" id="end-date" value="{{ default_end_date }}" required>
+                        </div>
+                        
+                        <div class="mb-3">
+                            <label for="model-type" class="form-label">Tipo di Modello</label>
+                            <select class="form-select" id="model-type">
+                                <option value="lstm" selected>LSTM</option>
+                                <option value="cnn">CNN</option>
+                                <option value="transformer">Transformer</option>
+                            </select>
+                        </div>
+                        
+                        <div class="mb-3">
+                            <label for="epochs" class="form-label">Numero di Epoche</label>
+                            <input type="number" class="form-control" id="epochs" min="10" max="500" value="50">
+                        </div>
+                        
+                        <div class="mb-3">
+                            <label for="batch-size" class="form-label">Dimensione del Batch</label>
+                            <input type="number" class="form-control" id="batch-size" min="8" max="128" value="32">
+                        </div>
+                        
+                        <button type="submit" class="btn btn-primary me-2" id="train-model-btn">
+                            <i class="fas fa-brain"></i> Addestra Modello
+                        </button>
+                        <button type="button" class="btn btn-danger" id="stop-training-btn" style="display: none;">
+                            <i class="fas fa-stop"></i> Interrompi Addestramento
+                        </button>
+                    </form>
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-lg-8">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="card-title">Stato Addestramento</h5>
+                </div>
+                <div class="card-body">
+                    <div id="training-status-container">
+                        <div class="alert alert-secondary" id="training-status-message" role="alert">
+                            In attesa di avvio...
+                        </div>
+                        
+                        <div class="progress mb-3" style="height: 25px;" aria-label="Progresso addestramento">
+                            <div id="training-progress" 
+                                 class="progress-bar progress-bar-striped progress-bar-animated bg-info" 
+                                 role="progressbar" 
+                                 style="width: 0%;" 
+                                 aria-valuenow="0" 
+                                 aria-valuemin="0" 
+                                 aria-valuemax="100">0%</div>
+                        </div>
+                        
+                        <div class="row mb-1">
+                            <div class="col-md-3 col-6 mb-2">
+                                <div class="card h-100">
+                                    <div class="card-body text-center p-2">
+                                        <h6 class="card-subtitle mb-1 text-muted small">Epoca Corrente</h6>
+                                        <h5 id="current-epoch" class="mb-0">-</h5>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="col-md-3 col-6 mb-2">
+                                <div class="card h-100">
+                                    <div class="card-body text-center p-2">
+                                        <h6 class="card-subtitle mb-1 text-muted small">Loss</h6>
+                                        <h5 id="current-loss" class="mb-0">-</h5>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="col-md-3 col-6 mb-2">
+                                <div class="card h-100">
+                                    <div class="card-body text-center p-2">
+                                        <h6 class="card-subtitle mb-1 text-muted small">Test Loss</h6>
+                                        <h5 id="current-test-loss" class="mb-0">-</h5>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="col-md-3 col-6 mb-2">
+                                <div class="card h-100">
+                                    <div class="card-body text-center p-2">
+                                        <h6 class="card-subtitle mb-1 text-muted small">Tempo Rimanente</h6>
+                                        <h5 id="remaining-time" class="mb-0">-</h5>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Grafico dell'andamento del training -->
+            <div class="card mt-3">
+                <div class="card-header">
+                    <h5 class="card-title">Andamento dell'Addestramento</h5>
+                </div>
+                <div class="card-body">
+                    <div style="height: 350px;">
+                        <canvas id="training-chart"></canvas>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Modelli Disponibili -->
+    <div class="row mt-4">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="card-title">Modelli Disponibili</h5>
+                </div>
+                <div class="card-body">
+                    <div class="table-responsive">
+                        <table class="table table-sm table-hover table-striped" id="models-table">
+                            <thead class="table-light">
+                                <tr>
+                                    <th>Simbolo</th>
+                                    <th>Tipo</th>
+                                    <th>Data Creazione</th>
+                                    <th>MSE</th>
+                                    <th>RMSE</th>
+                                    <th>Azioni</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% if available_models %}
+                                    {% for model in available_models %}
+                                        <tr>
+                                            <td>{{ model.symbol }}</td>
+                                            <td>{{ model.type }}</td>
+                                            <td>{{ model.created_at }}</td>
+                                            <td>{{ model.mse }}</td>
+                                            <td>{{ model.rmse }}</td>
+                                            <td>
+                                                <button class="btn btn-sm btn-info btn-generate-predictions" data-symbol="{{ model.symbol }}">
+                                                    <i class="fas fa-chart-line"></i> Previsioni
+                                                </button>
+                                                <button class="btn btn-sm btn-success btn-use-model" data-symbol="{{ model.symbol }}">
+                                                    <i class="fas fa-play"></i> Usa in Simulazione
+                                                </button>
+                                            </td>
+                                        </tr>
+                                    {% endfor %}
+                                {% else %}
+                                    <tr>
+                                        <td colspan="6" class="text-center">Nessun modello disponibile</td>
+                                    </tr>
+                                {% endif %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Previsioni -->
+    <div class="row mt-4" id="predictions-container" style="display: none;">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="card-title">Previsioni</h5>
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-md-8">
+                            <div style="height: 350px;">
+                                <canvas id="predictions-chart"></canvas>
+                            </div>
+                        </div>
+                        <div class="col-md-4">
+                            <div class="table-responsive">
+                                <table class="table table-sm table-hover table-striped" id="predictions-table">
+                                    <thead class="table-light">
+                                        <tr>
+                                            <th>Data</th>
+                                            <th>Prezzo</th>
+                                            <th>Variazione</th>
+                                            <th>Segnale</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        <tr>
+                                            <td colspan="4" class="text-center">Nessuna previsione disponibile</td>
+                                        </tr>
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal per la generazione di previsioni -->
+<div class="modal fade" id="predictions-modal" tabindex="-1" aria-labelledby="predictions-modal-label" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="predictions-modal-label">Genera Previsioni</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <form id="predictions-form">
+                    <input type="hidden" id="prediction-symbol" name="symbol">
+                    
+                    <div class="mb-3">
+                        <label for="prediction-days" class="form-label">Numero di Giorni</label>
+                        <input type="number" class="form-control" id="prediction-days" min="1" max="30" value="5">
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Annulla</button>
+                <button type="button" class="btn btn-primary" id="generate-predictions-btn">Genera Previsioni</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal per l'utilizzo del modello in simulazione -->
+<div class="modal fade" id="use-model-modal" tabindex="-1" aria-labelledby="use-model-modal-label" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="use-model-modal-label">Usa Modello in Simulazione</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <form id="use-model-form">
+                    <input type="hidden" id="model-symbol" name="symbol">
+                    
+                    <div class="mb-3">
+                        <label for="sequence-length" class="form-label">Lunghezza Sequenza</label>
+                        <input type="number" class="form-control" id="sequence-length" min="5" max="50" value="10">
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label for="threshold" class="form-label">Soglia per Segnali (%)</label>
+                        <input type="number" class="form-control" id="threshold" min="0.1" max="10" step="0.1" value="1">
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Annulla</button>
+                <button type="button" class="btn btn-primary" id="use-model-btn">Usa in Simulazione</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+{% endblock content %}
+
+{% block scripts %}
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        // Inizializza il grafico di addestramento
+        let trainingChart = null;
+        
+        function initTrainingChart() {
+            const ctx = document.getElementById('training-chart').getContext('2d');
+            trainingChart = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: [],
+                    datasets: [
+                        {
+                            label: 'Training Loss',
+                            data: [],
+                            borderColor: 'rgb(75, 192, 192)',
+                            tension: 0.1,
+                            fill: false
+                        },
+                        {
+                            label: 'Test Loss',
+                            data: [],
+                            borderColor: 'rgb(255, 99, 132)',
+                            tension: 0.1,
+                            fill: false
+                        }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    scales: {
+                        x: {
+                            title: {
+                                display: true,
+                                text: 'Epoca'
+                            }
+                        },
+                        y: {
+                            title: {
+                                display: true,
+                                text: 'Loss'
+                            }
+                        }
+                    }
+                }
+            });
+        }
+        
+        // Inizializza il grafico delle previsioni
+        let predictionsChart = null;
+        
+        function initPredictionsChart() {
+            const ctx = document.getElementById('predictions-chart').getContext('2d');
+            predictionsChart = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: [],
+                    datasets: [
+                        {
+                            label: 'Prezzo Storico',
+                            data: [],
+                            borderColor: 'rgb(75, 192, 192)',
+                            tension: 0.1,
+                            fill: false
+                        },
+                        {
+                            label: 'Previsioni',
+                            data: [],
+                            borderColor: 'rgb(255, 99, 132)',
+                            tension: 0.1,
+                            fill: false,
+                            borderDash: [5, 5]
+                        }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    scales: {
+                        x: {
+                            title: {
+                                display: true,
+                                text: 'Data'
+                            }
+                        },
+                        y: {
+                            title: {
+                                display: true,
+                                text: 'Prezzo'
+                            }
+                        }
+                    }
+                }
+            });
+        }
+        
+        // Inizializza i grafici
+        initTrainingChart();
+        initPredictionsChart();
+        
+        // Gestione del form di addestramento
+        const trainingForm = document.getElementById('training-form');
+        const trainModelBtn = document.getElementById('train-model-btn');
+        const stopTrainingBtn = document.getElementById('stop-training-btn');
+        
+        if (trainingForm) {
+            trainingForm.addEventListener('submit', function(e) {
+                e.preventDefault();
+                
+                // Recupera i parametri dal form
+                const symbol = document.getElementById('symbol').value;
+                const startDate = document.getElementById('start-date').value;
+                const endDate = document.getElementById('end-date').value;
+                const modelType = document.getElementById('model-type').value;
+                const epochs = document.getElementById('epochs').value;
+                const batchSize = document.getElementById('batch-size').value;
+                
+                // Aggiorna lo stato
+                const statusMessageEl = document.getElementById('training-status-message');
+                if (statusMessageEl) {
+                    statusMessageEl.textContent = 'Avvio addestramento in corso...';
+                    statusMessageEl.className = 'alert alert-warning';
+                }
+                
+                // Aggiorna UI pulsanti
+                if (trainModelBtn) trainModelBtn.disabled = true;
+                if (stopTrainingBtn) stopTrainingBtn.style.display = 'inline-block';
+                
+                // Resetta il grafico
+                if (trainingChart) {
+                    trainingChart.data.labels = [];
+                    trainingChart.data.datasets[0].data = [];
+                    trainingChart.data.datasets[1].data = [];
+                    trainingChart.update();
+                }
+                
+                // Invia richiesta POST al backend
+                fetch('/train_model', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        symbol: symbol,
+                        start_date: startDate,
+                        end_date: endDate,
+                        model_type: modelType,
+                        epochs: parseInt(epochs, 10),
+                        batch_size: parseInt(batchSize, 10)
+                    })
+                })
+                .then(response => response.json())
+                .then(data => {
+                    console.log('Risposta da /train_model:', data);
+                    if (data.status === 'started') {
+                        // L'addestramento è avviato
+                        if (statusMessageEl) {
+                            statusMessageEl.textContent = 'Addestramento avviato, in attesa di dati...';
+                            statusMessageEl.className = 'alert alert-info';
+                        }
+                    } else {
+                        // Errore nell'avvio
+                        showError(data.error || 'Errore sconosciuto nell\'avvio dell\'addestramento');
+                        if (statusMessageEl) {
+                            statusMessageEl.textContent = `Errore avvio: ${data.error}`;
+                            statusMessageEl.className = 'alert alert-danger';
+                        }
+                        // Ripristina UI
+                        if (trainModelBtn) trainModelBtn.disabled = false;
+                        if (stopTrainingBtn) stopTrainingBtn.style.display = 'none';
+                    }
+                })
+                .catch(error => {
+                    console.error('Errore fetch /train_model:', error);
+                    showError('Errore di comunicazione con il server.');
+                    if (statusMessageEl) {
+                        statusMessageEl.textContent = 'Errore di comunicazione.';
+                        statusMessageEl.className = 'alert alert-danger';
+                    }
+                    // Ripristina UI
+                    if (trainModelBtn) trainModelBtn.disabled = false;
+                    if (stopTrainingBtn) stopTrainingBtn.style.display = 'none';
+                });
+            });
+        }
+        
+        // Gestione del pulsante di stop addestramento
+        if (stopTrainingBtn) {
+            stopTrainingBtn.addEventListener('click', function() {
+                // Disabilita il pulsante per evitare click multipli
+                this.disabled = true;
+                this.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Interruzione...';
+                
+                // Invia richiesta POST al backend
+                fetch('/stop_training', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    }
+                })
+                .then(response => response.json())
+                .then(data => {
+                    console.log('Risposta da /stop_training:', data);
+                    if (data.status === 'stop_requested') {
+                        // Messaggio di conferma
+                        console.log("Richiesta di interruzione inviata con successo.");
+                        const statusMessageEl = document.getElementById('training-status-message');
+                        if (statusMessageEl) {
+                            statusMessageEl.textContent = 'Interruzione richiesta, attendere...';
+                            statusMessageEl.className = 'alert alert-warning';
+                        }
+                    } else {
+                        // Errore nella richiesta
+                        showError(data.message || 'Errore sconosciuto nell\'invio della richiesta di interruzione.');
+                        // Riabilita il pulsante se la richiesta fallisce
+                        this.disabled = false;
+                        this.innerHTML = '<i class="fas fa-stop"></i> Interrompi Addestramento';
+                    }
+                })
+                .catch(error => {
+                    console.error('Errore fetch /stop_training:', error);
+                    showError('Errore di comunicazione con il server per interrompere l\'addestramento.');
+                    // Riabilita il pulsante in caso di errore network
+                    this.disabled = false;
+                    this.innerHTML = '<i class="fas fa-stop"></i> Interrompi Addestramento';
+                });
+            });
+        }
+        
+        // Gestione del pulsante di generazione previsioni
+        const generatePredictionsButtons = document.querySelectorAll('.btn-generate-predictions');
+        const predictionsModal = document.getElementById('predictions-modal');
+        const predictionsForm = document.getElementById('predictions-form');
+        const generatePredictionsBtn = document.getElementById('generate-predictions-btn');
+        
+        generatePredictionsButtons.forEach(button => {
+            button.addEventListener('click', function() {
+                const symbol = this.getAttribute('data-symbol');
+                document.getElementById('prediction-symbol').value = symbol;
+                
+                // Mostra il modal
+                const modal = new bootstrap.Modal(predictionsModal);
+                modal.show();
+            });
+        });
+        
+        if (generatePredictionsBtn) {
+            generatePredictionsBtn.addEventListener('click', function() {
+                // Recupera i parametri dal form
+                const symbol = document.getElementById('prediction-symbol').value;
+                const days = document.getElementById('prediction-days').value;
+                
+                // Disabilita il pulsante per evitare click multipli
+                this.disabled = true;
+                this.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Generazione...';
+                
+                // Invia richiesta POST al backend
+                fetch('/generate_predictions', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        symbol: symbol,
+                        days: parseInt(days, 10)
+                    })
+                })
+                .then(response => response.json())
+                .then(data => {
+                    console.log('Risposta da /generate_predictions:', data);
+                    
+                    // Ripristina il pulsante
+                    this.disabled = false;
+                    this.innerHTML = 'Genera Previsioni';
+                    
+                    // Chiudi il modal
+                    const modal = bootstrap.Modal.getInstance(predictionsModal);
+                    modal.hide();
+                    
+                    if (data.status === 'success') {
+                        // Aggiorna il grafico delle previsioni
+                        updatePredictionsChart(data.predictions, data.historical);
+                        
+                        // Aggiorna la tabella delle previsioni
+                        updatePredictionsTable(data.signals);
+                        
+                        // Mostra il container delle previsioni
+                        document.getElementById('predictions-container').style.display = 'block';
+                    } else {
+                        // Errore nella generazione
+                        showError(data.error || 'Errore sconosciuto nella generazione delle previsioni');
+                    }
+                })
+                .catch(error => {
+                    console.error('Errore fetch /generate_predictions:', error);
+                    showError('Errore di comunicazione con il server.');
+                    
+                    // Ripristina il pulsante
+                    this.disabled = false;
+                    this.innerHTML = 'Genera Previsioni';
+                });
+            });
+        }
+        
+        // Gestione del pulsante di utilizzo modello
+        const useModelButtons = document.querySelectorAll('.btn-use-model');
+        const useModelModal = document.getElementById('use-model-modal');
+        const useModelForm = document.getElementById('use-model-form');
+        const useModelBtn = document.getElementById('use-model-btn');
+        
+        useModelButtons.forEach(button => {
+            button.addEventListener('click', function() {
+                const symbol = this.getAttribute('data-symbol');
+                document.getElementById('model-symbol').value = symbol;
+                
+                // Mostra il modal
+                const modal = new bootstrap.Modal(useModelModal);
+                modal.show();
+            });
+        });
+        
+        if (useModelBtn) {
+            useModelBtn.addEventListener('click', function() {
+                // Recupera i parametri dal form
+                const symbol = document.getElementById('model-symbol').value;
+                const sequenceLength = document.getElementById('sequence-length').value;
+                const threshold = document.getElementById('threshold').value;
+                
+                // Disabilita il pulsante per evitare click multipli
+                this.disabled = true;
+                this.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Configurazione...';
+                
+                // Invia richiesta POST al backend
+                fetch('/use_model_in_simulation', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        symbol: symbol,
+                        sequence_length: parseInt(sequenceLength, 10),
+                        threshold: parseFloat(threshold) / 100 // Converti da percentuale a decimale
+                    })
+                })
+                .then(response => response.json())
+                .then(data => {
+                    console.log('Risposta da /use_model_in_simulation:', data);
+                    
+                    // Ripristina il pulsante
+                    this.disabled = false;
+                    this.innerHTML = 'Usa in Simulazione';
+                    
+                    // Chiudi il modal
+                    const modal = bootstrap.Modal.getInstance(useModelModal);
+                    modal.hide();
+                    
+                    if (data.status === 'success') {
+                        // Mostra messaggio di successo
+                        showSuccess('Modello configurato con successo. Vai alla pagina di simulazione per utilizzarlo.');
+                        
+                        // Opzionalmente, reindirizza alla pagina di simulazione
+                        setTimeout(() => {
+                            window.location.href = '/simulation';
+                        }, 2000);
+                    } else {
+                        // Errore nella configurazione
+                        showError(data.error || 'Errore sconosciuto nella configurazione del modello');
+                    }
+                })
+                .catch(error => {
+                    console.error('Errore fetch /use_model_in_simulation:', error);
+                    showError('Errore di comunicazione con il server.');
+                    
+                    // Ripristina il pulsante
+                    this.disabled = false;
+                    this.innerHTML = 'Usa in Simulazione';
+                });
+            });
+        }
+        
+        // Funzione per aggiornare il grafico delle previsioni
+        function updatePredictionsChart(predictions, historical) {
+            if (!predictionsChart) return;
+            
+            // Prepara i dati
+            const labels = [...historical.dates, ...predictions.dates];
+            const historicalData = historical.prices.map((price, i) => ({
+                x: historical.dates[i],
+                y: price
+            }));
+            const predictionsData = predictions.prices.map((price, i) => ({
+                x: predictions.dates[i],
+                y: price
+            }));
+            
+            // Aggiorna il grafico
+            predictionsChart.data.labels = labels;
+            predictionsChart.data.datasets[0].data = historicalData;
+            predictionsChart.data.datasets[1].data = predictionsData;
+            predictionsChart.update();
+        }
+        
+        // Funzione per aggiornare la tabella delle previsioni
+        function updatePredictionsTable(signals) {
+            const table = document.getElementById('predictions-table');
+            const tbody = table.querySelector('tbody');
+            
+            // Pulisci la tabella
+            tbody.innerHTML = '';
+            
+            // Aggiungi le righe
+            signals.forEach(signal => {
+                const row = document.createElement('tr');
+                
+                // Determina la classe per la variazione
+                const changeClass = signal.change >= 0 ? 'text-success' : 'text-danger';
+                
+                // Determina la classe per il segnale
+                let signalClass = 'text-secondary';
+                if (signal.signal === 'BUY') signalClass = 'text-success';
+                if (signal.signal === 'SELL') signalClass = 'text-danger';
+                
+                row.innerHTML = `
+                    <td>${signal.date}</td>
+                    <td>${signal.predicted_close.toFixed(2)}</td>
+                    <td class="${changeClass}">${(signal.change * 100).toFixed(2)}%</td>
+                    <td class="${signalClass}">${signal.signal}</td>
+                `;
+                
+                tbody.appendChild(row);
+            });
+        }
+        
+        // Funzione per mostrare un messaggio di errore
+        function showError(message) {
+            const alert = `
+                <div class="alert alert-danger alert-dismissible fade show" role="alert">
+                    ${message}
+                    <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                </div>
+            `;
+            document.getElementById('alerts-container').innerHTML += alert;
+        }
+        
+        // Funzione per mostrare un messaggio di successo
+        function showSuccess(message) {
+            const alert = `
+                <div class="alert alert-success alert-dismissible fade show" role="alert">
+                    ${message}
+                    <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                </div>
+            `;
+            document.getElementById('alerts-container').innerHTML += alert;
+        }
+    });
+</script>
+{% endblock scripts %}
