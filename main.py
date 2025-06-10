@@ -29,7 +29,9 @@ from config import CONFIG, update_config
 from market_simulator.simulation import SimulationManager
 from interface.wizard import run_wizard
 from data.collector import DataCollector
-from neural_network.model_trainer import ModelTrainer
+# Import the bridge instead of the trainer directly for main script logic
+from trading_strategy.neural_network_bridge import NeuralNetworkBridge 
+# Keep ModelTrainer import if needed elsewhere, or remove if bridge handles all
 
 def main():
     """Funzione principale del programma."""
@@ -194,44 +196,68 @@ def run_simulation(config, num_agents, save_report=True):
 
 def run_training(config):
     """
-    Addestra un modello di rete neurale.
+    Addestra un modello di rete neurale utilizzando NeuralNetworkBridge.
     
     Args:
         config: Configurazione del sistema
     """
-    logger.info("Avvio addestramento modello...")
+    logger.info("Avvio addestramento modello tramite NeuralNetworkBridge...")
     
-    # Crea il trainer
-    trainer = ModelTrainer(config)
+    # Ottieni parametri dalla configurazione
+    symbols = config.get('market', {}).get('symbols', [])
+    start_date = config.get('market', {}).get('start_date')
+    end_date = config.get('market', {}).get('end_date')
+    model_type = config.get('neural_network', {}).get('model_type', 'lstm')
+    epochs = config.get('neural_network', {}).get('epochs', 50)
+    batch_size = config.get('neural_network', {}).get('batch_size', 32)
     
-    # Carica i dati
-    if not trainer.load_data():
-        logger.error("Errore nel caricamento dei dati")
+    if not symbols or not start_date or not end_date:
+        logger.error("Configurazione incompleta per l'addestramento (mancano simboli, start_date o end_date)")
         return False
-    
-    # Prepara i dati
-    if not trainer.prepare_data():
-        logger.error("Errore nella preparazione dei dati")
+        
+    # Crea il DataCollector e il NeuralNetworkBridge
+    # Nota: Assicurati che DataCollector non richieda argomenti specifici qui
+    # o passali se necessario dalla config.
+    try:
+        data_collector = DataCollector()
+        # Passa il data_collector al bridge
+        nn_bridge = NeuralNetworkBridge(data_collector=data_collector) 
+    except Exception as e:
+        logger.error(f"Errore nell'inizializzazione di DataCollector o NeuralNetworkBridge: {e}")
         return False
-    
-    # Crea il modello
-    if not trainer.create_model():
-        logger.error("Errore nella creazione del modello")
-        return False
-    
-    # Addestra il modello
-    if not trainer.train_model():
-        logger.error("Errore nell'addestramento del modello")
-        return False
-    
-    # Valuta il modello
-    metrics = trainer.evaluate_model()
-    logger.info(f"Metriche di valutazione: {metrics}")
-    
-    # Salva il modello
-    if not trainer.save_model():
-        logger.error("Errore nel salvataggio del modello")
-        return False
+
+    training_successful = True
+    for symbol in symbols:
+        logger.info(f"Addestramento modello per {symbol}...")
+        try:
+            success = nn_bridge.train_model(
+                symbol=symbol,
+                start_date=start_date,
+                end_date=end_date,
+                model_type=model_type,
+                epochs=epochs,
+                batch_size=batch_size
+            )
+            if not success:
+                logger.error(f"Addestramento fallito per {symbol}")
+                training_successful = False
+            else:
+                 logger.info(f"Addestramento per {symbol} completato.")
+                 # Nota: La valutazione e il salvataggio sono gestiti internamente
+                 # da nn_bridge.train_model -> ModelTrainer.train -> _save_model
+                 
+        except Exception as e:
+            logger.error(f"Errore durante l'addestramento per {symbol}: {e}")
+            import traceback
+            logger.error(traceback.format_exc())
+            training_successful = False
+
+    if training_successful:
+        logger.info("Addestramento completato per tutti i simboli richiesti.")
+    else:
+        logger.error("Addestramento fallito per uno o più simboli.")
+        
+    return training_successful
     
     logger.info("Addestramento completato con successo")
     return True
@@ -281,4 +307,4 @@ def run_self_play(config):
     return True
 
 if __name__ == '__main__':
-    main() 
+    main()

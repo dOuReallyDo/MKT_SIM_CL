@@ -6,10 +6,10 @@
         "end_date": null
     },
     "market_simulation": {
-        "last_update": "2025-04-07T01:32:52.729758",
+        "last_update": "2025-04-13T19:14:06.555851",
         "status": "completed",
         "results": {
-            "timestamp": "2025-04-07T01:32:52.729605",
+            "timestamp": "2025-04-13T19:14:06.555841",
             "num_agents": 5,
             "strategy": "trend_following",
             "initial_capital": 100000.0,
@@ -62,7 +62,9 @@
             ],
             "transactions_count": 0
         },
-        "error": "'MonitoredSimulationManager' object has no attribute 'websocket_manager'"
+        "error": null,
+        "timestamp": "2025-04-13T19:14:06.445273",
+        "progress": 100
     },
     "neural_network": {
         "last_update": null,

@@ -1,0 +1,157 @@
+version: '3.8'
+
+services:
+  # API Gateway
+  api-gateway:
+    build:
+      context: ./services/api-gateway
+      dockerfile: Dockerfile
+    ports:
+      - "8000:8000"
+    environment:
+      - MARKET_SIMULATOR_URL=http://market-simulator:8001
+      - AI_ENGINE_URL=http://ai-engine:8002
+      - DATA_PIPELINE_URL=http://data-pipeline:8003
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+      - SECRET_KEY=${SECRET_KEY:-your-secret-key}
+    depends_on:
+      - market-simulator
+      - ai-engine
+      - data-pipeline
+      - redis
+    networks:
+      - mkt-sim-network
+    volumes:
+      - ./logs:/app/logs
+
+  # Market Simulator
+  market-simulator:
+    build:
+      context: ./services/market-simulator
+      dockerfile: Dockerfile
+    ports:
+      - "8001:8001"
+    environment:
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+      - INFLUXDB_URL=http://influxdb:8086
+      - INFLUXDB_TOKEN=${INFLUXDB_TOKEN:-your-token}
+      - INFLUXDB_ORG=${INFLUXDB_ORG:-your-org}
+      - INFLUXDB_BUCKET=${INFLUXDB_BUCKET:-market-data}
+    depends_on:
+      - redis
+      - influxdb
+    networks:
+      - mkt-sim-network
+    volumes:
+      - ./logs:/app/logs
+
+  # AI Engine
+  ai-engine:
+    build:
+      context: ./services/ai-engine
+      dockerfile: Dockerfile
+    ports:
+      - "8002:8002"
+    environment:
+      - INFLUXDB_URL=http://influxdb:8086
+      - INFLUXDB_TOKEN=${INFLUXDB_TOKEN:-your-token}
+      - INFLUXDB_ORG=${INFLUXDB_ORG:-your-org}
+      - INFLUXDB_BUCKET=${INFLUXDB_BUCKET:-market-data}
+    depends_on:
+      - influxdb
+    networks:
+      - mkt-sim-network
+    volumes:
+      - ./logs:/app/logs
+      - ./models:/app/models
+
+  # Data Pipeline
+  data-pipeline:
+    build:
+      context: ./services/data-pipeline
+      dockerfile: Dockerfile
+    ports:
+      - "8003:8003"
+    environment:
+      - INFLUXDB_URL=http://influxdb:8086
+      - INFLUXDB_TOKEN=${INFLUXDB_TOKEN:-your-token}
+      - INFLUXDB_ORG=${INFLUXDB_ORG:-your-org}
+      - INFLUXDB_BUCKET=${INFLUXDB_BUCKET:-market-data}
+    depends_on:
+      - influxdb
+    networks:
+      - mkt-sim-network
+    volumes:
+      - ./logs:/app/logs
+      - ./data:/app/data
+
+  # Redis
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis-data:/data
+    networks:
+      - mkt-sim-network
+    command: redis-server --appendonly yes
+
+  # InfluxDB
+  influxdb:
+    image: influxdb:2.7
+    ports:
+      - "8086:8086"
+    environment:
+      - DOCKER_INFLUXDB_INIT_MODE=setup
+      - DOCKER_INFLUXDB_INIT_USERNAME=${INFLUXDB_USERNAME:-admin}
+      - DOCKER_INFLUXDB_INIT_PASSWORD=${INFLUXDB_PASSWORD:-admin123}
+      - DOCKER_INFLUXDB_INIT_ORG=${INFLUXDB_ORG:-your-org}
+      - DOCKER_INFLUXDB_INIT_BUCKET=${INFLUXDB_BUCKET:-market-data}
+      - DOCKER_INFLUXDB_INIT_ADMIN_TOKEN=${INFLUXDB_TOKEN:-your-token}
+    volumes:
+      - influxdb-data:/var/lib/influxdb2
+    networks:
+      - mkt-sim-network
+
+  # Prometheus
+  prometheus:
+    image: prom/prometheus:latest
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./prometheus:/etc/prometheus
+      - prometheus-data:/prometheus
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+      - '--web.console.libraries=/usr/share/prometheus/console_libraries'
+      - '--web.console.templates=/usr/share/prometheus/consoles'
+    networks:
+      - mkt-sim-network
+
+  # Grafana
+  grafana:
+    image: grafana/grafana:latest
+    ports:
+      - "3000:3000"
+    environment:
+      - GF_SECURITY_ADMIN_USER=${GRAFANA_USER:-admin}
+      - GF_SECURITY_ADMIN_PASSWORD=${GRAFANA_PASSWORD:-admin123}
+    volumes:
+      - grafana-data:/var/lib/grafana
+    depends_on:
+      - prometheus
+    networks:
+      - mkt-sim-network
+
+volumes:
+  redis-data:
+  influxdb-data:
+  prometheus-data:
+  grafana-data:
+
+networks:
+  mkt-sim-network:
+    driver: bridge 

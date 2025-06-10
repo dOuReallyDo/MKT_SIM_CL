@@ -393,23 +393,29 @@ def simulation():
 def run_simulation():
     """Endpoint per l'esecuzione della simulazione"""
     try:
+        print("DEBUG - run_simulation endpoint chiamato")
         # Recupera i parametri dalla richiesta
         data = request.get_json() or {}
         num_agents = int(data.get('num_agents', CONFIG['trading']['max_agents']))
         strategy = data.get('strategy', CONFIG['strategies']['active_strategy'])
         initial_capital = float(data.get('initial_capital', CONFIG['trading']['initial_capital']))
         
+        print(f"DEBUG - Parametri simulazione: num_agents={num_agents}, strategy={strategy}, initial_capital={initial_capital}")
+        
         # ++ AGGIUNTA VERIFICA STRATEGIA IMPLEMENTATA PRIMA DI AVVIARE ++
         available_strategies = get_available_strategies()
         if strategy not in available_strategies or available_strategies[strategy]['status'] != 'implemented':
             error_msg = f'Impossibile avviare la simulazione: la strategia \'{strategy}\' non è implementata.'
             logger.error(error_msg)
+            print(f"DEBUG - {error_msg}")
             return jsonify({'status': 'error', 'error': error_msg}), 400
 
         # Aggiorna la configurazione
         CONFIG['trading']['max_agents'] = num_agents
         CONFIG['trading']['initial_capital'] = initial_capital
         CONFIG['strategies']['active_strategy'] = strategy
+        
+        print("DEBUG - Configurazione aggiornata")
         
         # Salva la configurazione
         with open(os.path.join(BASE_DIR, 'config_updated.json'), 'w') as f:
@@ -423,27 +429,49 @@ def run_simulation():
                 missing_symbols.append(symbol)
         
         if missing_symbols:
-            return jsonify({
-                'error': f'Dati mancanti per i seguenti simboli: {", ".join(missing_symbols)}'
-            }), 400
+            error_msg = f'Dati mancanti per i seguenti simboli: {", ".join(missing_symbols)}'
+            print(f"DEBUG - {error_msg}")
+            return jsonify({'error': error_msg}), 400
+        
+        print("DEBUG - Tutti i dati sono disponibili per i simboli richiesti")
         
         # Connetti il monitor in tempo reale
         simulator.set_real_time_monitor(real_time_monitor)
+        print("DEBUG - RealTimeMonitor impostato su simulator")
         
         # Inizializza e avvia la simulazione in un thread separato
         def run_simulation_task():
             try:
+                print("DEBUG - Thread simulazione avviato")
+                
                 # Inizializza la simulazione
-                # La creazione agenti ora usa create_strategy che restituisce None se non implementata
-                # -> SimulationManager.create_agents deve gestire il caso in cui strategy è None
+                print("DEBUG - Inizializzazione simulazione...")
                 if not simulator.initialize_simulation():
-                     raise Exception("Errore nell'inizializzazione della simulazione.")
+                     error_msg = "Errore nell'inizializzazione della simulazione."
+                     print(f"DEBUG - {error_msg}")
+                     raise Exception(error_msg)
+                     
+                print("DEBUG - Simulazione inizializzata correttamente")
+                
+                # Crea gli agenti
+                print("DEBUG - Creazione agenti...")
                 if not simulator.create_agents(num_agents):
                      # create_agents dovrebbe loggare l'errore specifico
-                     raise Exception(f"Errore nella creazione degli agenti (strategia '{strategy}' valida?).")
+                     error_msg = f"Errore nella creazione degli agenti (strategia '{strategy}' valida?)."
+                     print(f"DEBUG - {error_msg}")
+                     raise Exception(error_msg)
+                
+                print(f"DEBUG - {num_agents} agenti creati con successo")
+                
+                # IMPORTANTE: Avvia il monitoraggio PRIMA di eseguire la simulazione
+                print("DEBUG - Avvio del monitoraggio in tempo reale...")
+                real_time_monitor.start_monitoring(update_interval=1.0)
                 
                 # Esegui la simulazione
+                print("DEBUG - Avvio loop principale simulazione...")
                 results = simulator.run_simulation()
+                
+                print("DEBUG - Simulazione completata, elaborazione risultati...")
                 
                 # Aggiorna lo stato della dashboard
                 if results:
@@ -466,8 +494,12 @@ def run_simulation():
                         'message': 'Simulazione completata con successo',
                         'results': results
                     })
+                    print("DEBUG - Aggiornamento finale inviato: stato 'completed'")
+                else:
+                    print("DEBUG - La simulazione ha restituito results=None o vuoto")
             except Exception as e:
                 logger.error(f"Errore nell'esecuzione della simulazione nel thread: {e}", exc_info=True)
+                print(f"DEBUG - ERRORE nel thread simulazione: {e}")
                 websocket_manager.emit_error(str(e), 'simulation')
                 # Aggiorna lo stato per riflettere l'errore
                 state_manager.update_market_simulation_state({
@@ -477,9 +509,11 @@ def run_simulation():
                 })
         
         # Avvia la simulazione in un thread separato
+        print("DEBUG - Creazione thread simulazione...")
         simulation_thread = threading.Thread(target=run_simulation_task)
         simulation_thread.daemon = True
         simulation_thread.start()
+        print(f"DEBUG - Thread simulazione avviato: id={simulation_thread.ident}")
         
         return jsonify({
             'status': 'started',

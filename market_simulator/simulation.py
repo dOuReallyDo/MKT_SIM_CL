@@ -122,13 +122,19 @@ class SimulationManager:
     def initialize_simulation(self):
         """Inizializza l'ambiente di simulazione"""
         try:
+            print("DEBUG - SimulationManager.initialize_simulation() - INIZIO")
             # Carica i dati di mercato
             if not self.load_market_data():
+                print("DEBUG - SimulationManager.initialize_simulation - load_market_data ha fallito")
                 return False
+            
+            print(f"DEBUG - Market data caricati: {len(self.market_data)} simboli")
             
             # Converti le date in pd.Timestamp se sono stringhe
             start_date = pd.to_datetime(self.config['market']['start_date'])
             end_date = pd.to_datetime(self.config['market']['end_date'])
+            
+            print(f"DEBUG - Date simulazione: {start_date} -> {end_date}")
             
             # Inizializza l'ambiente di mercato
             self.market_env = MarketEnvironment(
@@ -137,17 +143,27 @@ class SimulationManager:
                 end_date=end_date
             )
             
+            print(f"DEBUG - MarketEnvironment creato: {type(self.market_env)}")
+            print(f"DEBUG - Trading days: {len(self.market_env.trading_days)}")
+            
             self.logger.info(f"Ambiente di mercato inizializzato con {len(self.market_data)} simboli e {len(self.market_env.get_dates())} giorni di trading")
+            print("DEBUG - SimulationManager.initialize_simulation() - COMPLETATO")
             return True
         except Exception as e:
             self.logger.error(f"Errore nell'inizializzazione della simulazione: {e}")
+            print(f"DEBUG - ERRORE in initialize_simulation: {e}")
+            import traceback
+            print(f"DEBUG - TRACCIA: {traceback.format_exc()}")
             return False
 
     def create_agents(self, num_agents=5):
         """Crea gli agenti di trading"""
         try:
+            print(f"DEBUG - SimulationManager.create_agents(num_agents={num_agents}) - INIZIO")
             self.agents = []
             strategy_class = self.get_strategy_class()
+            
+            print(f"DEBUG - Strategia selezionata: {strategy_class.__name__}")
             
             # Recupera i parametri della strategia attiva
             strategy_params = {}
@@ -156,6 +172,8 @@ class SimulationManager:
                 if active_strategy in self.config['strategies']['strategy_params']:
                     strategy_params = self.config['strategies']['strategy_params'][active_strategy]
             
+            print(f"DEBUG - Parametri strategia: {strategy_params}")
+            
             # ++ MODIFICA: Verifica preliminare se la strategia è implementata usando la factory ++ 
             # Creiamo un'istanza "temporanea" solo per verificare
             temp_strategy_instance = self.create_strategy_instance(strategy_class, strategy_params)
@@ -163,26 +181,37 @@ class SimulationManager:
                  # La funzione create_strategy_instance (che usa create_strategy) ora ritorna None
                  # se la strategia non è implementata (o classe non trovata)
                  active_strategy_name = self.config.get('strategies', {}).get('active_strategy', 'N/A')
-                 self.logger.error(f"Impossibile creare agenti: la strategia '{active_strategy_name}' non è implementata o valida.")
+                 error_msg = f"Impossibile creare agenti: la strategia '{active_strategy_name}' non è implementata o valida."
+                 self.logger.error(error_msg)
+                 print(f"DEBUG - {error_msg}")
                  return False # Indica fallimento
 
+            print(f"DEBUG - Verifica strategia superata: {type(temp_strategy_instance)}")
+            
+            initial_capital = self.config['trading']['initial_capital']
+            print(f"DEBUG - Capitale iniziale per agenti: {initial_capital}")
+            
             for i in range(num_agents):
+                print(f"DEBUG - Creazione agente {i}...")
                 # Crea l'istanza della strategia con i parametri corretti
                 # Riusiamo la funzione factory che ora gestisce i parametri
                 strategy = self.create_strategy_instance(strategy_class, strategy_params)
                 
                 # Verifica (anche se ridondante dopo il check iniziale)
                 if strategy is None:
-                     self.logger.error(f"Errore critico: strategy è None per agente {i} anche dopo check iniziale.")
+                     error_msg = f"Errore critico: strategy è None per agente {i} anche dopo check iniziale."
+                     self.logger.error(error_msg)
+                     print(f"DEBUG - {error_msg}")
                      continue # Salta questo agente
 
                 # Crea l'agente
-                initial_capital = self.config['trading']['initial_capital']
                 agent = TradingAgent(
                     id=i,
                     initial_capital=initial_capital,
                     strategy=strategy
                 )
+                
+                print(f"DEBUG - Agente {i} creato con strategia {type(strategy).__name__}")
                 
                 # Aggiungi l'agente alla lista
                 self.agents.append(agent)
@@ -190,14 +219,20 @@ class SimulationManager:
                 # Aggiungi l'agente all'ambiente di mercato
                 if self.market_env:
                     self.market_env.add_agent(agent)
+                    print(f"DEBUG - Agente {i} aggiunto all'ambiente di mercato")
+                else:
+                    print(f"DEBUG - ERRORE: market_env non presente, impossibile aggiungere l'agente {i}")
             
             active_strategy_name = self.config.get('strategies', {}).get('active_strategy', 'N/A')
             if not self.agents:
-                 self.logger.warning(f"Nessun agente creato per la strategia {active_strategy_name} (potrebbe essere non valida?).")
+                 error_msg = f"Nessun agente creato per la strategia {active_strategy_name} (potrebbe essere non valida?)."
+                 self.logger.warning(error_msg)
+                 print(f"DEBUG - {error_msg}")
                  # Non necessariamente un errore fatale, ma la simulazione sarà vuota
                  return True # La funzione in sé non è fallita, ma non ci sono agenti
             
             self.logger.info(f"Creati {len(self.agents)} agenti con strategia {active_strategy_name}")
+            print(f"DEBUG - SimulationManager.create_agents() - COMPLETATO con {len(self.agents)} agenti")
             return True
         except Exception as e:
             self.logger.error(f"Errore nella creazione degli agenti: {e}", exc_info=True)

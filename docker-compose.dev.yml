@@ -1,0 +1,53 @@
+version: '3.8'
+
+services:
+  api-gateway:
+    build: 
+      context: ./services/api-gateway
+      target: development
+    volumes:
+      - ./services/api-gateway:/app
+    environment:
+      - ENVIRONMENT=development
+      - DEBUG=1
+
+  market-simulator:
+    build:
+      context: ./services/market-simulator
+      target: development
+    volumes:
+      - ./services/market-simulator:/app
+    environment:
+      - ENVIRONMENT=development
+      - DEBUG=1
+
+  ai-engine:
+    build:
+      context: ./services/ai-engine
+      target: development
+    volumes:
+      - ./services/ai-engine:/app
+    environment:
+      - ENVIRONMENT=development
+      - DEBUG=1
+
+  data-pipeline:
+    build:
+      context: ./services/data-pipeline
+      target: development
+    volumes:
+      - ./services/data-pipeline:/app
+    environment:
+      - ENVIRONMENT=development
+      - DEBUG=1
+
+  dashboard:
+    build:
+      context: ./services/dashboard
+      target: development
+    volumes:
+      - ./services/dashboard:/app
+      - /app/node_modules
+    environment:
+      - NODE_ENV=development
+      - VITE_API_URL=http://localhost:8000 

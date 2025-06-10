@@ -60,12 +60,15 @@ class RealTimeMonitor:
         Args:
             update_interval: Intervallo di aggiornamento in secondi
         """
+        print(f"DEBUG - RealTimeMonitor.start_monitoring(update_interval={update_interval}) - START")
         if self.is_monitoring:
             self.logger.warning("Il monitoraggio è già in corso")
+            print("DEBUG - RealTimeMonitor.start_monitoring - Monitoraggio già in corso, uscita")
             return
         
         if not self.simulation_manager:
             self.logger.error("Nessun SimulationManager collegato")
+            print("DEBUG - RealTimeMonitor.start_monitoring - Nessun SimulationManager collegato, uscita")
             return
         
         self.is_monitoring = True
@@ -75,6 +78,7 @@ class RealTimeMonitor:
             daemon=True
         )
         self.monitoring_thread.start()
+        print(f"DEBUG - RealTimeMonitor.start_monitoring - Thread avviato: {self.monitoring_thread.ident}")
         self.logger.info(f"Monitoraggio avviato con intervallo di {update_interval}s")
     
     def stop_monitoring(self):
@@ -91,18 +95,46 @@ class RealTimeMonitor:
         Args:
             update_interval: Intervallo di aggiornamento in secondi
         """
+        print(f"DEBUG - RealTimeMonitor._monitoring_loop(update_interval={update_interval}) - STARTING")
         last_update_time = time.time()
+        loop_count = 0
+        forced_update_count = 0  # Contatore per forzare aggiornamenti
+        force_update = True  # Forza un aggiornamento al primo ciclo
         
         while self.is_monitoring:
             try:
+                loop_count += 1
                 current_time = time.time()
                 
-                # Verifica se è il momento di inviare un aggiornamento
-                if current_time - last_update_time >= update_interval:
+                # Forza un aggiornamento ogni 5 secondi indipendentemente
+                if current_time - last_update_time >= update_interval or force_update:
+                    print(f"DEBUG - RealTimeMonitor._monitoring_loop - Iterazione #{loop_count} - Inviando aggiornamento")
+                    
                     # Recupera lo stato attuale del simulatore e degli agenti
                     simulation_state = self._get_simulation_state()
                     
+                    # IMPORTANTE: Se non abbiamo stato, creiamo uno stato fittizio per testing
+                    if not simulation_state and forced_update_count < 3:
+                        forced_update_count += 1
+                        print(f"DEBUG - FORZANDO EMISSIONE stato simulato #{forced_update_count}")
+                        
+                        # Stato fittizio per debug
+                        simulation_state = {
+                            'status': 'running',
+                            'timestamp': datetime.now().isoformat(),
+                            'progress': forced_update_count * 10,  # 10%, 20%, 30%
+                            'current_day': '2025-01-01',
+                            'agents': [],
+                            'forced_debug_msg': f"Stato simulato #{forced_update_count}",
+                        }
+                    
                     if simulation_state:
+                        print(f"DEBUG - RealTimeMonitor._monitoring_loop - Stato ottenuto, status={simulation_state.get('status', 'N/A')}")
+                        
+                        # FORZARE STATO RUNNING per test
+                        if 'status' not in simulation_state:
+                            simulation_state['status'] = 'running'
+                        
                         # Invia l'aggiornamento tramite WebSocket
                         self.websocket_manager.emit_market_simulation_update(simulation_state)
                         
@@ -110,10 +142,17 @@ class RealTimeMonitor:
                         self.state_manager.update_market_simulation_state(simulation_state)
                         
                         self.logger.debug("Aggiornamento inviato")
+                        print(f"DEBUG - Aggiornamento #{loop_count} inviato a websocket_manager")
+                    else:
+                        print("DEBUG - RealTimeMonitor._monitoring_loop - _get_simulation_state ha restituito None o vuoto")
                     
                     last_update_time = current_time
+                    force_update = False  # Resetta dopo il primo aggiornamento forzato
                 
-                # Breve pausa per ridurre l'utilizzo della CPU
+                # Breve pausa ma stampa per debug
+                if loop_count % 20 == 0:  # Ogni 2 secondi (20 * 0.1s)
+                    print(f"DEBUG - RealTimeMonitor._monitoring_loop - Still alive... loop #{loop_count}")
+                
                 time.sleep(0.1)
                 
             except Exception as e:
@@ -130,25 +169,35 @@ class RealTimeMonitor:
         try:
             # Inizio Blocco Try Principale
             if not self.simulation_manager:
+                print("DEBUG - _get_simulation_state: simulation_manager è None")
                 return None
             
             # Verifica se la simulazione è in corso
             sim_state = self.simulation_manager.get_simulation_state() # Usa lo stato interno del manager
+            print(f"DEBUG - _get_simulation_state: sim_state = {sim_state}")
+            
+            # IMPORTANTE: Return uno stato base anche se non è in running
+            # Il frontend può ancora mostrare 'in attesa' o 'completato'
             if sim_state.get('status') != 'running':
-                 return {
+                status_state = {
                     'status': sim_state.get('status', 'idle'),
                     'timestamp': datetime.now().isoformat(),
                     'progress': sim_state.get('progress', 0),
                     'error': sim_state.get('error')
                 }
+                print(f"DEBUG - _get_simulation_state: ritorno stato non-running: {status_state['status']}")
+                return status_state
 
+            # Verifica presenza di market_env e agents (attributi fondamentali)
             if not hasattr(self.simulation_manager, 'market_env') or not hasattr(self.simulation_manager, 'agents'):
                 self.logger.warning("Simulazione in stato running ma market_env o agents non trovati.")
-                return {
+                print("DEBUG - _get_simulation_state: market_env o agents non trovati")
+                error_state = {
                     'status': 'error',
-                    'error': 'Inconsistenza interna',
+                    'error': 'Inconsistenza interna: market_env o agents mancanti',
                     'timestamp': datetime.now().isoformat(),
                 }
+                return error_state
             
             # Recupera lo stato attuale
             agents_state = []
@@ -168,12 +217,12 @@ class RealTimeMonitor:
                     agent_recent_tx = []
                     if hasattr(agent, 'transactions') and agent.transactions:
                         for tx in agent.transactions[-5:]:
-                             tx_copy = tx.copy()
-                             tx_copy['agent_id'] = agent.id
-                             # Assicurati che la data sia una stringa
-                             if isinstance(tx_copy.get('date'), datetime):
-                                 tx_copy['date'] = tx_copy['date'].strftime('%Y-%m-%d')
-                             agent_recent_tx.append(tx_copy)
+                            tx_copy = tx.copy()
+                            tx_copy['agent_id'] = agent.id
+                            # Assicurati che la data sia una stringa
+                            if isinstance(tx_copy.get('date'), datetime):
+                                tx_copy['date'] = tx_copy['date'].strftime('%Y-%m-%d')
+                            agent_recent_tx.append(tx_copy)
                         all_recent_transactions.extend(agent_recent_tx) # Aggiungi alla lista globale
 
                     # Calcola il valore del portafoglio specifico dell'agente
@@ -229,13 +278,13 @@ class RealTimeMonitor:
             # Prepara il punto dati per il grafico
             chart_point = None
             if current_date_str:
-                 chart_point = {
-                      'date': current_date_str,
-                      'value': total_portfolio_value_all_agents
-                 }
+                chart_point = {
+                    'date': current_date_str,
+                    'value': total_portfolio_value_all_agents
+                }
 
-            # Istruzione return (correttamente indentata dentro il try principale)
-            return {
+            # Crea stato running da ritornare
+            running_state = {
                 'status': 'running',
                 'timestamp': datetime.now().isoformat(),
                 'progress': progress,
@@ -247,19 +296,21 @@ class RealTimeMonitor:
                 'recent_transactions': recent_transactions_to_send, # Aggiunto: Ultime 10 transazioni aggregate
                 'chart_point': chart_point # Aggiunto: Punto per grafico
             }
-            # Fine Blocco Try Principale
+            
+            print(f"DEBUG - _get_simulation_state: ritorno stato running con progress={progress}")
+            return running_state
+            
         except Exception as e:
             # Inizio Blocco Except Principale (correttamente allineato con il try principale)
             self.logger.error(f"Errore grave nel recupero dello stato della simulazione: {e}", exc_info=True)
             # Invia un errore via websocket se possibile
             if self.websocket_manager:
-                 self.websocket_manager.emit_error(f"Errore monitor: {e}", 'monitoring')
+                self.websocket_manager.emit_error(f"Errore monitor: {e}", 'monitoring')
             return {
                 'status': 'error',
                 'error': f'Errore interno monitor: {e}',
                 'timestamp': datetime.now().isoformat()
             }
-            # Fine Blocco Except Principale
     
     def get_simulation_results(self) -> Dict[str, Any]:
         """
@@ -305,4 +356,4 @@ class RealTimeMonitor:
             return results
         except Exception as e:
             self.logger.error(f"Errore nel recupero dei risultati della simulazione: {e}")
-            return {'error': str(e)} 
+            return {'error': str(e)}

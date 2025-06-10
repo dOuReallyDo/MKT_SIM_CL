@@ -6,11 +6,18 @@ Questo modulo fornisce funzioni per integrare le reti neurali con la simulazione
 
 import os
 import sys
+import os
+import sys
 import json
 import logging
 import numpy as np
 import pandas as pd
+import torch # Added import
 from datetime import datetime, timedelta
+from typing import Optional # Added for type hinting
+
+# Import ModelTrainer
+from neural_network.model_trainer import ModelTrainer 
 
 # Configura il logger
 logger = logging.getLogger('neural_network.integration')
@@ -28,11 +35,63 @@ class NeuralNetworkIntegration:
             model_trainer: Istanza del ModelTrainer
             data_collector: Istanza del DataCollector
         """
-        self.model_trainer = model_trainer
+        self.model_trainer = model_trainer # This might be the initial trainer instance passed in
         self.data_collector = data_collector
-        self.models = {}
+        self.models = {} # Dictionary to store loaded ModelTrainer instances per symbol
         self.predictions = {}
         
+    def _find_model_path(self, symbol: str, input_dir: str = 'models') -> Optional[str]:
+        """
+        Trova il percorso del modello .pt più recente per un simbolo.
+        Helper function adapted from NeuralNetworkBridge.
+        
+        Args:
+            symbol: Simbolo dell'asset
+            input_dir: Directory dove cercare i modelli
+            
+        Returns:
+            Percorso del modello o None se non trovato
+        """
+        try:
+            if not os.path.exists(input_dir):
+                logger.warning(f"Directory dei modelli non trovata: {input_dir}")
+                return None
+            
+            # Trova tutti i file dei modelli .pt per il simbolo
+            model_files = [
+                f for f in os.listdir(input_dir)
+                if f.startswith(f"{symbol}_") and f.endswith('.pt')
+            ]
+            
+            if not model_files:
+                return None
+            
+            # Ordina per data (più recente prima, basato sul timestamp nel nome)
+            # Assumendo formato nome file: {symbol}_{type}_{timestamp}.pt
+            def get_timestamp(filename):
+                try:
+                    parts = filename.split('_')
+                    if len(parts) >= 3:
+                        # Estrai timestamp YYYYMMDDHHMMSS da es. lstm_model_20231027_103000.pt
+                        ts_str = parts[-1].split('.')[0] 
+                        # Gestisce sia YYYYMMDD_HHMMSS che YYYYMMDDHHMMSS
+                        if len(ts_str) == 15 and ts_str[8] == '_': # YYYYMMDD_HHMMSS
+                             return datetime.strptime(ts_str, '%Y%m%d_%H%M%S')
+                        elif len(ts_str) == 14: # YYYYMMDDHHMMSS
+                             return datetime.strptime(ts_str, '%Y%m%d%H%M%S')
+                    return datetime.min # Ritorna data minima se il formato non è valido
+                except:
+                    return datetime.min
+
+            model_files.sort(key=get_timestamp, reverse=True)
+            
+            # Restituisci il percorso del modello più recente
+            return os.path.join(input_dir, model_files[0])
+        
+        except Exception as e:
+            logger.error(f"Errore nella ricerca del modello per {symbol}: {e}")
+            return None
+
     def prepare_data_for_training(self, symbols, start_date, end_date, sequence_length=10, test_size=0.2):
         """
         Prepara i dati per l'addestramento dei modelli.
@@ -182,48 +241,7 @@ class NeuralNetworkIntegration:
         
         return np.array(X), np.array(y)
     
-    def train_models(self, prepared_data, model_type='lstm', epochs=50, batch_size=32):
-        """
-        Addestra i modelli per i simboli.
-        
-        Args:
-            prepared_data: Dati preparati per l'addestramento
-            model_type: Tipo di modello ('lstm', 'cnn', 'transformer')
-            epochs: Numero di epoche
-            batch_size: Dimensione del batch
-            
-        Returns:
-            dict: Modelli addestrati
-        """
-        logger.info(f"Addestramento dei modelli di tipo {model_type}")
-        
-        for symbol, data in prepared_data.items():
-            try:
-                logger.info(f"Addestramento del modello per {symbol}")
-                
-                # Ottieni i dati di addestramento
-                X_train = data['X_train']
-                y_train = data['y_train']
-                X_test = data['X_test']
-                y_test = data['y_test']
-                
-                # Addestra il modello
-                model = self.model_trainer.train_model(
-                    X_train, y_train, X_test, y_test,
-                    model_type=model_type,
-                    epochs=epochs,
-                    batch_size=batch_size
-                )
-                
-                # Salva il modello
-                self.models[symbol] = model
-                
-                logger.info(f"Modello per {symbol} addestrato con successo")
-            
-            except Exception as e:
-                logger.error(f"Errore nell'addestramento del modello per {symbol}: {e}")
-        
-        return self.models
+    # Removed train_models function as it duplicates/conflicts with NeuralNetworkBridge logic
     
     def save_models(self, output_dir='models'):
         """
@@ -235,26 +253,28 @@ class NeuralNetworkIntegration:
         Returns:
             bool: True se i modelli sono stati salvati con successo
         """
-        logger.info(f"Salvataggio dei modelli in {output_dir}")
+        """
+        Salva i modelli addestrati usando il ModelTrainer associato.
+        Nota: Questo assume che self.models contenga istanze di ModelTrainer.
+        """
+        logger.info(f"Salvataggio dei modelli PyTorch in {output_dir}")
         
-        # Assicurati che la directory esista
-        os.makedirs(output_dir, exist_ok=True)
+        all_saved = True
+        for symbol, model_trainer_instance in self.models.items():
+            if isinstance(model_trainer_instance, ModelTrainer) and model_trainer_instance.model is not None:
+                try:
+                    # Usa il metodo interno del trainer per salvare
+                    # Nota: _save_model in ModelTrainer non prende argomenti e genera il nome file
+                    model_trainer_instance._save_model() 
+                    logger.info(f"Modello per {symbol} salvato tramite ModelTrainer.")
+                except Exception as e:
+                    logger.error(f"Errore nel salvataggio del modello per {symbol} tramite ModelTrainer: {e}")
+                    all_saved = False
+            else:
+                logger.warning(f"Nessun ModelTrainer valido o modello addestrato trovato per {symbol} in self.models. Impossibile salvare.")
+                all_saved = False
         
-        for symbol, model in self.models.items():
-            try:
-                # Crea il percorso del file
-                model_path = os.path.join(output_dir, f"{symbol}_{datetime.now().strftime('%Y%m%d')}.h5")
-                
-                # Salva il modello
-                model.save(model_path)
-                
-                logger.info(f"Modello per {symbol} salvato in {model_path}")
-            
-            except Exception as e:
-                logger.error(f"Errore nel salvataggio del modello per {symbol}: {e}")
-                return False
-        
-        return True
+        return all_saved
     
     def load_models(self, symbols, input_dir='models'):
         """
@@ -267,35 +287,47 @@ class NeuralNetworkIntegration:
         Returns:
             dict: Modelli caricati
         """
-        logger.info(f"Caricamento dei modelli da {input_dir}")
+        logger.info(f"Caricamento dei modelli PyTorch da {input_dir}")
         
-        from tensorflow.keras.models import load_model
-        
+        # Utilizza il ModelTrainer per caricare i modelli
+        if not hasattr(self, 'model_trainer') or self.model_trainer is None:
+            logger.error("ModelTrainer non inizializzato in NeuralNetworkIntegration")
+            return {}
+            
+        loaded_models = {}
         for symbol in symbols:
             try:
-                # Trova il modello più recente per il simbolo
-                model_files = [f for f in os.listdir(input_dir) if f.startswith(f"{symbol}_") and f.endswith('.h5')]
+                # Trova il modello .pt più recente per il simbolo
+                model_files = [f for f in os.listdir(input_dir) if f.startswith(f"{symbol}_") and f.endswith('.pt')]
                 
                 if not model_files:
-                    logger.warning(f"Nessun modello trovato per {symbol}")
+                    logger.warning(f"Nessun modello .pt trovato per {symbol} in {input_dir}")
                     continue
                 
-                # Ordina per data (più recente prima)
+                # Ordina per data (più recente prima, basato sul timestamp nel nome)
                 model_files.sort(reverse=True)
                 
-                # Carica il modello
+                # Carica il modello utilizzando ModelTrainer
                 model_path = os.path.join(input_dir, model_files[0])
-                model = load_model(model_path)
                 
-                # Salva il modello
-                self.models[symbol] = model
+                # Creiamo un trainer temporaneo per caricare il modello
+                # Nota: Questo potrebbe essere migliorato se ModelTrainer potesse caricare senza addestrare prima
+                temp_trainer = ModelTrainer() 
+                success = temp_trainer.load_model(model_path)
                 
-                logger.info(f"Modello per {symbol} caricato da {model_path}")
-            
+                if success:
+                    # Salviamo il trainer (che contiene il modello caricato e la configurazione)
+                    # Usiamo il simbolo come chiave per coerenza con il resto della classe
+                    loaded_models[symbol] = temp_trainer 
+                    self.models[symbol] = temp_trainer # Aggiorna anche l'attributo della classe
+                    logger.info(f"Modello per {symbol} caricato da {model_path} usando ModelTrainer")
+                else:
+                    logger.error(f"Errore nel caricamento del modello {model_path} usando ModelTrainer")
+
             except Exception as e:
                 logger.error(f"Errore nel caricamento del modello per {symbol}: {e}")
         
-        return self.models
+        return loaded_models # Restituisce i trainer caricati
     
     def predict(self, symbols, days=5, sequence_length=10):
         """
@@ -311,8 +343,10 @@ class NeuralNetworkIntegration:
         """
         logger.info(f"Generazione delle previsioni per {symbols} ({days} giorni)")
         
-        predictions = {}
-        
+        # Utilizza il ModelTrainer per caricare i modelli
+        # Import spostato all'inizio del file
+            
+        loaded_models = {}
         for symbol in symbols:
             try:
                 # Verifica che il modello sia stato addestrato
@@ -340,9 +374,37 @@ class NeuralNetworkIntegration:
                 # Ottieni l'ultima sequenza
                 last_sequence = df_norm.values[-sequence_length:]
                 
-                # Genera le previsioni
-                model = self.models[symbol]
-                
+                # Ottieni il ModelTrainer caricato per il simbolo
+                # self.models[symbol] ora contiene un'istanza di ModelTrainer
+                model_trainer = self.models.get(symbol)
+                if not model_trainer or not model_trainer.model:
+                    # Se il modello non è stato caricato correttamente o non è presente nel trainer
+                    # Prova a caricarlo di nuovo (potrebbe essere necessario se l'app è stata riavviata)
+                    model_path = self._find_model_path(symbol, input_dir='models') # Assumendo che _find_model_path sia aggiornato per .pt
+                    if model_path:
+                        temp_trainer = ModelTrainer()
+                        if temp_trainer.load_model(model_path):
+                             # Assicurati che il modello sia effettivamente caricato nello state_dict
+                             if hasattr(temp_trainer, 'model_state_dict'):
+                                 # Ricrea il modello con la dimensione corretta prima di caricare lo state_dict
+                                 # Calcola input_dim dai dati normalizzati
+                                 input_dim = df_norm.shape[1] 
+                                 temp_trainer.create_model(input_dim) # Crea il modello con la giusta dimensione
+                                 temp_trainer.model.load_state_dict(temp_trainer.model_state_dict)
+                                 temp_trainer.model.to(temp_trainer.device) # Sposta sul dispositivo corretto
+                                 self.models[symbol] = temp_trainer
+                                 model_trainer = temp_trainer
+                                 logger.info(f"Modello per {symbol} ricaricato e inizializzato on-the-fly.")
+                             else:
+                                logger.warning(f"Model state_dict non trovato nel trainer caricato per {symbol}")
+                                continue # Salta questo simbolo se non si può caricare
+                        else:
+                             logger.warning(f"Impossibile ricaricare il modello per {symbol} da {model_path}")
+                             continue # Salta questo simbolo se non si può caricare
+                    else:
+                        logger.warning(f"Nessun modello .pt trovato per {symbol} per la previsione.")
+                        continue # Salta questo simbolo se non c'è modello
+
                 # Prepara le date future
                 last_date = df.index[-1]
                 future_dates = []
@@ -359,25 +421,48 @@ class NeuralNetworkIntegration:
                 current_sequence = last_sequence.copy()
                 
                 for _ in range(days):
-                    # Reshape per il modello
-                    X = current_sequence.reshape(1, sequence_length, df_norm.shape[1])
+                    # Usa il metodo predict del ModelTrainer (che usa PyTorch)
+                    # Il metodo predict del trainer si aspetta l'input normalizzato
+                    # e restituisce la previsione normalizzata
                     
-                    # Genera la previsione
-                    prediction = model.predict(X)[0]
+                    # Prepara l'input per il modello PyTorch (batch_size=1)
+                    input_tensor = torch.FloatTensor(current_sequence).unsqueeze(0).to(model_trainer.device)
                     
-                    # Aggiungi la previsione alla sequenza
-                    new_row = current_sequence[-1].copy()
-                    new_row[0] = prediction  # Sostituisci il prezzo di chiusura
+                    # Esegui la previsione con il modello PyTorch
+                    model_trainer.model.eval() # Assicurati che sia in modalità valutazione
+                    with torch.no_grad():
+                         # Verifica se il modello è stato creato (potrebbe essere None dopo il caricamento)
+                         if model_trainer.model is None:
+                             if hasattr(model_trainer, 'model_state_dict'):
+                                 # Ricrea il modello se abbiamo lo state_dict
+                                 input_dim = current_sequence.shape[1]
+                                 model_trainer.create_model(input_dim)
+                                 model_trainer.model.load_state_dict(model_trainer.model_state_dict)
+                                 model_trainer.model.to(model_trainer.device)
+                                 logger.info(f"Modello per {symbol} ricreato per la previsione.")
+                             else:
+                                 logger.error(f"Modello per {symbol} non è inizializzato e manca state_dict.")
+                                 raise ValueError(f"Modello per {symbol} non inizializzato.")
+                                 
+                         prediction_norm = model_trainer.model(input_tensor).item()
+
+                    # Aggiungi la previsione normalizzata alla sequenza per la prossima iterazione
+                    # Dobbiamo ricostruire l'intera riga della sequenza successiva
+                    # Assumiamo che la previsione sia per la prima colonna (es. 'Close')
+                    new_row = current_sequence[-1].copy() 
+                    new_row[0] = prediction_norm # Aggiorna la colonna predetta (assumendo sia la prima)
+                    # Nota: Le altre feature nella new_row rimangono quelle dell'ultimo timestep reale.
+                    # Questo è un approccio comune ma potrebbe essere migliorato prevedendo tutte le feature.
                     
                     # Aggiorna la sequenza
                     current_sequence = np.vstack([current_sequence[1:], new_row])
                     
-                    # Salva la previsione
-                    predicted_values.append(prediction)
+                    # Salva la previsione normalizzata
+                    predicted_values.append(prediction_norm)
                 
-                # Denormalizza le previsioni
-                close_idx = df.columns.get_loc('Close')
-                predicted_closes = scaler.inverse_transform(np.array([predicted_values] * df.shape[1]).T)[:, close_idx]
+                # Denormalizza le previsioni usando il DataPreprocessor del ModelTrainer
+                # Il preprocessor del trainer ha lo scaler corretto per i prezzi
+                predicted_closes = [model_trainer.data_preprocessor.inverse_transform_price(p) for p in predicted_values]
                 
                 # Crea il DataFrame delle previsioni
                 predictions_df = pd.DataFrame({
@@ -418,39 +503,68 @@ class NeuralNetworkIntegration:
         
         for symbol, data in prepared_data.items():
             try:
-                # Verifica che il modello sia stato addestrato
-                if symbol not in self.models:
-                    logger.warning(f"Nessun modello disponibile per {symbol}")
-                    continue
+                    # Verifica che un ModelTrainer sia stato caricato per il simbolo
+                    model_trainer = self.models.get(symbol)
+                    if not isinstance(model_trainer, ModelTrainer) or model_trainer.model is None:
+                         # Prova a ricaricare se necessario
+                         model_path = self._find_model_path(symbol, input_dir='models')
+                         if model_path:
+                             temp_trainer = ModelTrainer()
+                             if temp_trainer.load_model(model_path):
+                                 if hasattr(temp_trainer, 'model_state_dict'):
+                                     input_dim = data['X_test'].shape[2] # Ottieni input_dim dai dati di test
+                                     temp_trainer.create_model(input_dim)
+                                     temp_trainer.model.load_state_dict(temp_trainer.model_state_dict)
+                                     temp_trainer.model.to(temp_trainer.device)
+                                     self.models[symbol] = temp_trainer
+                                     model_trainer = temp_trainer
+                                     logger.info(f"Modello per {symbol} ricaricato per valutazione.")
+                                 else:
+                                     logger.warning(f"State_dict mancante per {symbol} durante ricaricamento per valutazione.")
+                                     continue
+                             else:
+                                 logger.warning(f"Impossibile ricaricare modello per {symbol} per valutazione.")
+                                 continue
+                         else:
+                             logger.warning(f"Nessun modello .pt trovato per {symbol} per valutazione.")
+                             continue
+
+                    # Ottieni i dati di test e convertili in tensori PyTorch
+                    X_test = torch.FloatTensor(data['X_test']).to(model_trainer.device)
+                    y_test = torch.FloatTensor(data['y_test']).to(model_trainer.device)
+                    
+                    # Genera le previsioni usando il modello PyTorch
+                    model_trainer.model.eval() # Modalità valutazione
+                    with torch.no_grad():
+                        y_pred_tensor = model_trainer.model(X_test).squeeze()
+                    
+                    # Converte i tensori in array numpy per le metriche sklearn
+                    y_pred = y_pred_tensor.cpu().numpy()
+                    y_true = y_test.cpu().numpy()
+                    
+                    # Calcola le metriche
+                    mse = mean_squared_error(y_true, y_pred)
+                    rmse = np.sqrt(mse)
+                    mae = mean_absolute_error(y_true, y_pred) # Corrected indentation
+                    r2 = r2_score(y_true, y_pred) # Corrected indentation
                 
-                # Ottieni i dati di test
-                X_test = data['X_test']
-                y_test = data['y_test']
-                
-                # Genera le previsioni
-                model = self.models[symbol]
-                y_pred = model.predict(X_test)
-                
-                # Calcola le metriche
-                mse = mean_squared_error(y_test, y_pred)
-                rmse = np.sqrt(mse)
-                mae = mean_absolute_error(y_test, y_pred)
-                r2 = r2_score(y_test, y_pred)
-                
-                # Salva le metriche
-                metrics[symbol] = {
+                    # Salva le metriche
+                    metrics[symbol] = { # Corrected indentation
                     'mse': mse,
                     'rmse': rmse,
                     'mae': mae,
-                    'r2': r2
-                }
+                        'mse': mse,
+                        'rmse': rmse,
+                        'mae': mae,
+                        'r2': r2
+                    }
                 
-                logger.info(f"Metriche per {symbol}: MSE={mse:.4f}, RMSE={rmse:.4f}, MAE={mae:.4f}, R2={r2:.4f}")
+                    logger.info(f"Metriche per {symbol}: MSE={mse:.4f}, RMSE={rmse:.4f}, MAE={mae:.4f}, R2={r2:.4f}") # Corrected indentation
             
-            except Exception as e:
+            except Exception as e: # Added missing except block from previous edit
                 logger.error(f"Errore nella valutazione del modello per {symbol}: {e}")
         
-        return metrics
+        return metrics # Corrected indentation
     
     def generate_trading_signals(self, predictions, threshold=0.01):
         """

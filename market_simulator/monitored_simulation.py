@@ -25,6 +25,7 @@ class MonitoredSimulationManager(SimulationManager):
             config: Configurazione della simulazione
             real_time_monitor: Istanza di RealTimeMonitor (opzionale)
         """
+        print("DEBUG - MonitoredSimulationManager.__init__ - INIZIO")
         super().__init__(config)
         self.real_time_monitor = real_time_monitor
         self.simulation_state = {
@@ -37,7 +38,12 @@ class MonitoredSimulationManager(SimulationManager):
         }
         
         if self.real_time_monitor:
+            print("DEBUG - MonitoredSimulationManager - Attaching real_time_monitor")
             self.real_time_monitor.attach_simulation_manager(self)
+        else:
+            print("DEBUG - MonitoredSimulationManager - real_time_monitor is None")
+            
+        print("DEBUG - MonitoredSimulationManager.__init__ - COMPLETATO")
     
     def set_real_time_monitor(self, monitor):
         """
@@ -57,14 +63,33 @@ class MonitoredSimulationManager(SimulationManager):
         Args:
             initial_state: Stato iniziale della simulazione
         """
+        print("DEBUG - MonitoredSimulationManager.on_simulation_start - INIZIO")
         self.simulation_state['status'] = 'running'
         self.simulation_state['start_time'] = datetime.now().isoformat()
         self.simulation_state['progress'] = 0
         self.simulation_state['error'] = None
         
+        # Verifica che market_env e agents siano impostati
+        if hasattr(self, 'market_env') and self.market_env:
+            print(f"DEBUG - market_env è impostato: {type(self.market_env)}")
+            if hasattr(self.market_env, 'trading_days'):
+                print(f"DEBUG - market_env.trading_days: {len(self.market_env.trading_days)} giorni")
+        else:
+            print("DEBUG - ERROR: market_env non è impostato!")
+            
+        if hasattr(self, 'agents') and self.agents:
+            print(f"DEBUG - agents è impostato: {len(self.agents)} agenti")
+        else:
+            print("DEBUG - ERROR: agents non è impostato o è vuoto!")
+        
         # Notifica l'avvio tramite il monitor
         if self.real_time_monitor:
+            print("DEBUG - Chiamando real_time_monitor.start_monitoring()")
             self.real_time_monitor.start_monitoring()
+        else:
+            print("DEBUG - ERROR: real_time_monitor è None, impossibile avviare il monitoraggio")
+            
+        print("DEBUG - MonitoredSimulationManager.on_simulation_start - COMPLETATO")
     
     def on_simulation_progress(self, progress, current_date, state):
         """

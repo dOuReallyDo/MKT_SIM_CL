@@ -1,0 +1,912 @@
+#!/usr/bin/env python
+"""
+Dashboard per la gestione del sistema di trading algoritmico.
+
+Questo modulo fornisce un'interfaccia web per la gestione del sistema.
+"""
+
+import os
+import sys
+import json
+import logging
+import argparse
+import math
+import locale
+import pandas as pd
+from datetime import datetime, timedelta
+from dateutil.relativedelta import relativedelta
+from functools import wraps
+from flask import Flask, render_template, request, jsonify, redirect, url_for, flash, send_file
+from flask_socketio import SocketIO, emit
+
+# Aggiungi la directory root al path di Python
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+
+# Ora possiamo importare i moduli
+from market_simulator.simulation import SimulationManager
+from data.collector import DataCollector
+from interface.wizard import SetupWizard
+from neural_network.model_trainer import ModelTrainer
+from trading_strategy import get_available_strategies
+from logging.handlers import RotatingFileHandler
+# Importazioni assolute, non relative
+from dashboard.state_manager import DashboardStateManager
+from dashboard.websocket_manager import WebSocketManager
+from dashboard.visualization_manager import VisualizationManager
+
+# Imposta la localizzazione per formattare i numeri con "." come separatore delle migliaia e "," per i decimali
+try:
+    locale.setlocale(locale.LC_ALL, 'it_IT.UTF-8')
+except:
+    try:
+        locale.setlocale(locale.LC_ALL, 'it_IT')
+    except:
+        # Fallback
+        pass
+
+# Configurazione dei percorsi
+BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+DATA_DIR = os.path.join(BASE_DIR, 'data')
+REPORTS_DIR = os.path.join(BASE_DIR, 'reports')
+LOGS_DIR = os.path.join(BASE_DIR, 'logs')
+
+# Crea le directory se non esistono
+os.makedirs(DATA_DIR, exist_ok=True)
+os.makedirs(REPORTS_DIR, exist_ok=True)
+os.makedirs(LOGS_DIR, exist_ok=True)
+
+# Configurazione del logging
+log_file = os.path.join(LOGS_DIR, 'app.log')
+handler = RotatingFileHandler(log_file, maxBytes=10000000, backupCount=5)
+handler.setFormatter(logging.Formatter(
+    '%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+))
+logger = logging.getLogger('app')
+logger.setLevel(logging.INFO)
+logger.addHandler(handler)
+
+# Inizializzazione dell'app Flask
+app = Flask(__name__, 
+           template_folder=os.path.join(os.path.dirname(os.path.abspath(__file__)), 'templates'),
+           static_folder=os.path.join(os.path.dirname(os.path.abspath(__file__)), 'static'))
+
+# Chiave segreta per le sessioni
+app.secret_key = os.environ.get('SECRET_KEY', 'development_key')
+
+# Configurazione per la gestione degli errori
+@app.errorhandler(404)
+def page_not_found(e):
+    return render_template('error.html', error='Pagina non trovata'), 404
+
+@app.errorhandler(500)
+def internal_server_error(e):
+    return render_template('error.html', error='Errore interno del server'), 500
+
+@app.errorhandler(Exception)
+def handle_exception(e):
+    logger.error(f"Errore non gestito: {str(e)}")
+    return render_template('error.html', error=str(e)), 500
+
+# Inizializzazione dei manager
+state_manager = DashboardStateManager()
+websocket_manager = WebSocketManager(app)
+visualization_manager = VisualizationManager()
+
+# Caricamento della configurazione
+with open(os.path.join(BASE_DIR, 'config_updated.json'), 'r') as f:
+    CONFIG = json.load(f)
+
+# Assicurati che la chiave 'simulation' esista
+if 'simulation' not in CONFIG:
+    CONFIG['simulation'] = {'num_agents': 5}
+
+# Inizializzazione del simulatore e del collector
+simulator = SimulationManager(CONFIG)
+collector = DataCollector(DATA_DIR)
+
+def get_default_dates():
+    """Calcola le date di default per gli ultimi 24 mesi"""
+    try:
+        end_date = datetime.now()
+        start_date = end_date - relativedelta(months=24)
+        
+        # Formatta correttamente le date nel formato YYYY-MM-DD
+        end_date_str = end_date.strftime('%Y-%m-%d')
+        start_date_str = start_date.strftime('%Y-%m-%d')
+        
+        # Verifica che le date siano valide
+        try:
+            datetime.strptime(start_date_str, '%Y-%m-%d')
+            datetime.strptime(end_date_str, '%Y-%m-%d')
+        except ValueError:
+            # In caso di errore usa un fallback
+            end_date = datetime.now()
+            start_date = end_date - relativedelta(months=24)
+            end_date_str = end_date.strftime('%Y-%m-%d')
+            start_date_str = start_date.strftime('%Y-%m-%d')
+        
+        logger.info(f"Date predefinite generate: {start_date_str} a {end_date_str}")
+        return start_date_str, end_date_str
+    except Exception as e:
+        logger.error(f"Errore nel calcolo delle date predefinite: {e}")
+        # Fallback hardcoded in caso di errore
+        today = datetime.now()
+        two_years_ago = today.year - 2
+        return f"{two_years_ago}-{today.month:02d}-{today.day:02d}", today.strftime('%Y-%m-%d')
+
+# Imposta le date predefinite nella configurazione se non sono già presenti
+default_start_date, default_end_date = get_default_dates()
+if 'start_date' not in CONFIG['market'] or not CONFIG['market']['start_date']:
+    CONFIG['market']['start_date'] = default_start_date
+if 'end_date' not in CONFIG['market'] or not CONFIG['market']['end_date']:
+    CONFIG['market']['end_date'] = default_end_date
+
+@app.route('/')
+def index():
+    """Pagina principale"""
+    try:
+        # Carica i dati disponibili
+        available_data = {}
+        for symbol in CONFIG['market']['symbols']:
+            cache_file = os.path.join(DATA_DIR, f"{symbol}.csv")
+            if os.path.exists(cache_file):
+                try:
+                    # Leggi il file CSV
+                    df = pd.read_csv(cache_file)
+                    
+                    # Verifica la struttura del CSV
+                    if not df.empty:
+                        # Cerca la colonna data (può essere "Date" o "Datetime" o indice)
+                        date_col = None
+                        if 'Date' in df.columns:
+                            date_col = 'Date'
+                        elif 'Datetime' in df.columns:
+                            date_col = 'Datetime'
+                        elif 'date' in df.columns:
+                            date_col = 'date'
+                        elif 'datetime' in df.columns:
+                            date_col = 'datetime'
+                            
+                        if date_col is not None:
+                            # Converti la colonna data in datetime
+                            df[date_col] = pd.to_datetime(df[date_col], errors='coerce')
+                            # Rimuovi le righe con date non valide
+                            df = df.dropna(subset=[date_col])
+                            if not df.empty:
+                                df.set_index(date_col, inplace=True)
+                                available_data[symbol] = {
+                                    'start_date': df.index.min().strftime('%Y-%m-%d'),
+                                    'end_date': df.index.max().strftime('%Y-%m-%d'),
+                                    'rows': len(df)
+                                }
+                except Exception as e:
+                    logger.error(f"Errore nel caricamento dei dati per {symbol}: {e}")
+                    continue
+        
+        # Recupera lo stato della dashboard
+        dashboard_state = state_manager.get_dashboard_state()
+        
+        return render_template('index.html', 
+                             available_data=available_data,
+                             config=CONFIG,
+                             dashboard_state=dashboard_state)
+    except Exception as e:
+        logger.error(f"Errore nel caricamento della pagina principale: {e}")
+        return render_template('error.html', error=str(e))
+
+@app.route('/available_data')
+def available_data():
+    """Mostra i dati disponibili"""
+    try:
+        available_data = {}
+        for symbol in CONFIG['market']['symbols']:
+            cache_file = os.path.join(DATA_DIR, f"{symbol}.csv")
+            if os.path.exists(cache_file):
+                try:
+                    # Leggi il file CSV
+                    df = pd.read_csv(cache_file)
+                    
+                    # Verifica la struttura del CSV
+                    if not df.empty:
+                        # Cerca la colonna data (può essere "Date" o "Datetime" o indice)
+                        date_col = None
+                        if 'Date' in df.columns:
+                            date_col = 'Date'
+                        elif 'Datetime' in df.columns:
+                            date_col = 'Datetime'
+                        elif 'date' in df.columns:
+                            date_col = 'date'
+                        elif 'datetime' in df.columns:
+                            date_col = 'datetime'
+                            
+                        if date_col is not None:
+                            # Converti la colonna data in datetime
+                            df[date_col] = pd.to_datetime(df[date_col], errors='coerce')
+                            # Rimuovi le righe con date non valide
+                            df = df.dropna(subset=[date_col])
+                            if not df.empty:
+                                df.set_index(date_col, inplace=True)
+                                available_data[symbol] = {
+                                    'start_date': df.index.min().strftime('%Y-%m-%d'),
+                                    'end_date': df.index.max().strftime('%Y-%m-%d'),
+                                    'rows': len(df)
+                                }
+                except Exception as e:
+                    logger.error(f"Errore nel caricamento dei dati per {symbol}: {e}")
+                    continue
+        
+        return render_template('available_data.html', 
+                             available_data=available_data,
+                             config=CONFIG)
+    except Exception as e:
+        logger.error(f"Errore nel caricamento dei dati disponibili: {e}")
+        return render_template('error.html', error=str(e))
+
+@app.route('/data_collection', methods=['GET', 'POST'])
+def data_collection():
+    """Gestisce la raccolta dei dati"""
+    try:
+        if request.method == 'POST':
+            # Recupera i dati dal form
+            symbols = request.form.get('symbols', '').split(',')
+            symbols = [s.strip() for s in symbols if s.strip()]
+            
+            start_date = request.form.get('start_date')
+            end_date = request.form.get('end_date')
+            interval = request.form.get('interval', '1d')
+            
+            if not symbols:
+                flash('Inserisci almeno un simbolo', 'error')
+                return redirect(url_for('data_collection'))
+            
+            # Aggiorna la configurazione
+            CONFIG['market']['symbols'] = symbols
+            CONFIG['market']['start_date'] = start_date
+            CONFIG['market']['end_date'] = end_date
+            CONFIG['market']['interval'] = interval
+            
+            # Salva la configurazione
+            with open(os.path.join(BASE_DIR, 'config_updated.json'), 'w') as f:
+                json.dump(CONFIG, f, indent=4)
+            
+            # Avvia il download dei dati
+            try:
+                collector.download_data(symbols, start_date, end_date, interval)
+                flash('Download dei dati completato con successo', 'success')
+            except Exception as e:
+                flash(f'Errore durante il download dei dati: {str(e)}', 'error')
+            
+            return redirect(url_for('data_collection'))
+        
+        # Carica i dati disponibili
+        available_data = {}
+        try:
+            for symbol in os.listdir(DATA_DIR):
+                if symbol.endswith('.csv'):
+                    symbol_name = symbol[:-4]  # Rimuove .csv
+                    file_path = os.path.join(DATA_DIR, symbol)
+                    
+                    if os.path.exists(file_path):
+                        # Ottieni informazioni sul file
+                        file_stats = os.stat(file_path)
+                        size_bytes = file_stats.st_size
+                        modified_time = datetime.fromtimestamp(file_stats.st_mtime)
+                        
+                        # Carica il dataframe per ottenere info
+                        try:
+                            df = pd.read_csv(file_path)
+                            start_date = df['Date'].iloc[0] if 'Date' in df else 'N/A'
+                            end_date = df['Date'].iloc[-1] if 'Date' in df else 'N/A'
+                            rows = len(df)
+                            
+                            available_data[symbol_name] = {
+                                'start_date': start_date,
+                                'end_date': end_date,
+                                'rows': rows,
+                                'size': get_file_size_str(size_bytes),
+                                'last_update': get_time_ago(modified_time)
+                            }
+                        except Exception as e:
+                            logger.error(f"Errore nell'elaborazione del file {symbol}: {e}")
+        except Exception as e:
+            logger.error(f"Errore nel caricamento dei dati disponibili: {e}")
+        
+        # Genera date predefinite
+        today = datetime.now()
+        default_end_date = today.strftime('%Y-%m-%d')
+        default_start_date = (today - timedelta(days=365*2)).strftime('%Y-%m-%d')
+        logger.info(f"Date predefinite generate: {default_start_date} a {default_end_date}")
+        
+        # Recupera lo stato salvato
+        tab_state = state_manager.get_tab_state('data_collection')
+        symbols = tab_state.get('symbols', '').split(',') if 'symbols' in tab_state else []
+        symbols = [s.strip() for s in symbols if s.strip()]
+        
+        # Prepara il contesto per il template
+        context = {
+            'available_data': available_data,
+            'symbols': symbols,
+            'start_date': tab_state.get('startDate', default_start_date),
+            'end_date': tab_state.get('endDate', default_end_date),
+            'interval': tab_state.get('interval', '1d'),
+            'default_start_date': default_start_date,
+            'default_end_date': default_end_date
+        }
+        
+        return render_template('data_collection.html', **context)
+    except Exception as e:
+        logger.error(f"Errore nella pagina di raccolta dati: {e}")
+        flash(f'Si è verificato un errore: {str(e)}', 'danger')
+        return redirect(url_for('index'))
+
+@app.route('/api/check_data', methods=['POST'])
+def check_data():
+    """API per verificare i dati disponibili"""
+    try:
+        data = request.get_json()
+        symbols = data.get('symbols', [])
+        
+        if not symbols:
+            return jsonify({'error': 'Nessun simbolo specificato'}), 400
+        
+        result = {}
+        for symbol in symbols:
+            cache_file = os.path.join(DATA_DIR, f"{symbol}.csv")
+            if os.path.exists(cache_file):
+                try:
+                    df = pd.read_csv(cache_file)
+                    if not df.empty:
+                        # Cerca la colonna data
+                        date_col = None
+                        if 'Date' in df.columns:
+                            date_col = 'Date'
+                        elif 'Datetime' in df.columns:
+                            date_col = 'Datetime'
+                        elif 'date' in df.columns:
+                            date_col = 'date'
+                        elif 'datetime' in df.columns:
+                            date_col = 'datetime'
+                            
+                        if date_col is not None:
+                            df[date_col] = pd.to_datetime(df[date_col], errors='coerce')
+                            df = df.dropna(subset=[date_col])
+                            if not df.empty:
+                                df.set_index(date_col, inplace=True)
+                                result[symbol] = {
+                                    'available': True,
+                                    'start_date': df.index.min().strftime('%Y-%m-%d'),
+                                    'end_date': df.index.max().strftime('%Y-%m-%d'),
+                                    'rows': len(df)
+                                }
+                            else:
+                                result[symbol] = {
+                                    'available': False,
+                                    'error': 'Nessun dato valido trovato'
+                                }
+                        else:
+                            result[symbol] = {
+                                'available': False,
+                                'error': 'Colonna data non trovata'
+                            }
+                    else:
+                        result[symbol] = {
+                            'available': False,
+                            'error': 'File vuoto'
+                        }
+                except Exception as e:
+                    result[symbol] = {
+                        'available': False,
+                        'error': str(e)
+                    }
+            else:
+                result[symbol] = {
+                    'available': False,
+                    'error': 'File non trovato'
+                }
+        
+        return jsonify(result)
+    except Exception as e:
+        logger.error(f"Errore nella verifica dei dati: {e}")
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/config', methods=['GET', 'POST'])
+def config():
+    """Pagina di configurazione"""
+    try:
+        if request.method == 'POST':
+            # Aggiorna la configurazione
+            new_config = {
+                'market': {
+                    'symbols': request.form.getlist('symbols'),
+                    'start_date': request.form.get('start_date'),
+                    'end_date': request.form.get('end_date')
+                },
+                'trading': {
+                    'initial_capital': float(request.form.get('initial_capital', 100000)),
+                    'strategy': request.form.get('strategy', 'random')
+                }
+            }
+            
+            # Salva la nuova configurazione
+            config_file = os.path.join(BASE_DIR, 'config_updated.json')
+            with open(config_file, 'w') as f:
+                json.dump(new_config, f, indent=4)
+            
+            # Aggiorna la configurazione in memoria
+            global CONFIG
+            CONFIG = new_config
+            
+            # Aggiorna il simulatore con la nuova configurazione
+            global simulator
+            simulator = SimulationManager(CONFIG)
+            
+            return jsonify({'message': 'Configurazione salvata con successo'})
+        
+        # GET request - mostra il form di configurazione
+        start_date, end_date = get_default_dates()
+        return render_template('config.html',
+                             start_date=start_date,
+                             end_date=end_date,
+                             config=CONFIG)
+    except Exception as e:
+        logger.error(f"Errore nel caricamento della pagina di configurazione: {e}")
+        return render_template('error.html', error=str(e))
+
+@app.route('/simulation')
+def simulation():
+    """Pagina di simulazione"""
+    try:
+        start_date, end_date = get_default_dates()
+        return render_template('simulation.html',
+                             start_date=start_date,
+                             end_date=end_date,
+                             config=CONFIG)
+    except Exception as e:
+        logger.error(f"Errore nel caricamento della pagina di simulazione: {e}")
+        return render_template('error.html', error=str(e))
+
+@app.route('/run_simulation', methods=['POST'])
+def run_simulation():
+    """Endpoint per l'esecuzione della simulazione"""
+    try:
+        # Verifica che i dati siano disponibili per tutti i simboli
+        missing_symbols = []
+        for symbol in CONFIG['market']['symbols']:
+            cache_file = os.path.join(DATA_DIR, f"{symbol}.csv")
+            if not os.path.exists(cache_file):
+                missing_symbols.append(symbol)
+        
+        if missing_symbols:
+            return jsonify({
+                'error': f'Dati mancanti per i seguenti simboli: {", ".join(missing_symbols)}'
+            }), 400
+        
+        # Esegui la simulazione
+        results = simulator.run_simulation()
+        
+        if results is None:
+            return jsonify({'error': 'Errore durante l\'esecuzione della simulazione'}), 500
+        
+        # Salva i risultati
+        results_file = os.path.join(REPORTS_DIR, f"simulation_results_{datetime.now().strftime('%Y%m%d_%H%M%S')}.json")
+        with open(results_file, 'w') as f:
+            json.dump(results, f, indent=4)
+        
+        return jsonify({
+            'message': 'Simulazione completata con successo',
+            'results_file': results_file
+        })
+    except Exception as e:
+        logger.error(f"Errore nell'esecuzione della simulazione: {e}")
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/reports')
+def reports():
+    """Visualizza i report disponibili"""
+    try:
+        # Directory contenente i report
+        report_dir = os.path.join(BASE_DIR, 'reports')
+        if not os.path.exists(report_dir):
+            os.makedirs(report_dir)
+        
+        logger.info(f"Caricamento della pagina dei report iniziato")
+        logger.info(f"Esaminando i file in {report_dir}")
+        
+        reports_list = []
+        
+        # Elenca tutti i file JSON nella directory reports
+        for filename in os.listdir(report_dir):
+            if filename.endswith('.json'):
+                logger.info(f"Elaborazione del file: {filename}")
+                report_path = os.path.join(report_dir, filename)
+                
+                # Ottieni informazioni sul file
+                file_stats = os.stat(report_path)
+                size_bytes = file_stats.st_size
+                size_str = get_file_size_str(size_bytes)
+                modified_time = datetime.fromtimestamp(file_stats.st_mtime)
+                time_ago = get_time_ago(modified_time)
+                
+                try:
+                    # Carica il file JSON per estrarre informazioni
+                    with open(report_path, 'r') as f:
+                        report_data = json.load(f)
+                    
+                    # Estrai informazioni rilevanti
+                    report_id = os.path.splitext(filename)[0]
+                    timestamp = report_data.get('timestamp', modified_time.strftime('%Y-%m-%d %H:%M:%S'))
+                    symbols = report_data.get('symbols', ['N/A'])
+                    start_date = report_data.get('start_date', 'N/A')
+                    end_date = report_data.get('end_date', 'N/A')
+                    strategy = report_data.get('strategy', 'N/A')
+                    
+                    # Calcola rendimento se disponibile
+                    returns = report_data.get('returns', {})
+                    overall_return = returns.get('overall_return', 0) * 100 if isinstance(returns, dict) else 0
+                    
+                    reports_list.append({
+                        'id': report_id,
+                        'name': filename,
+                        'path': report_path,
+                        'timestamp': timestamp,
+                        'time_ago': time_ago,
+                        'symbols': symbols,
+                        'start_date': start_date,
+                        'end_date': end_date,
+                        'strategy': strategy,
+                        'return': overall_return,
+                        'size': size_str
+                    })
+                except Exception as e:
+                    logger.error(f"Errore nell'elaborazione del file {filename}: {e}")
+                    reports_list.append({
+                        'id': os.path.splitext(filename)[0],
+                        'name': filename,
+                        'path': report_path,
+                        'timestamp': modified_time.strftime('%Y-%m-%d %H:%M:%S'),
+                        'time_ago': time_ago,
+                        'symbols': ['N/A'],
+                        'start_date': 'N/A',
+                        'end_date': 'N/A',
+                        'strategy': 'N/A',
+                        'return': 0,
+                        'size': size_str
+                    })
+        
+        # Ordina i report per data (più recenti prima)
+        reports_list = sorted(reports_list, key=lambda x: x['timestamp'], reverse=True)
+        logger.info(f"Trovati {len(reports_list)} report")
+        logger.info("Report ordinati correttamente")
+        logger.info("Rendering del template reports.html")
+        
+        return render_template('reports.html', reports=reports_list)
+    except Exception as e:
+        logger.error(f"Errore nella visualizzazione dei report: {e}")
+        flash(f'Si è verificato un errore: {str(e)}', 'danger')
+        return redirect(url_for('index'))
+
+@app.route('/view_report/<report_id>')
+def view_report(report_id):
+    """Visualizza un report specifico con grafici interattivi"""
+    try:
+        report_path = os.path.join(BASE_DIR, 'reports', f"{report_id}.json")
+        
+        if not os.path.exists(report_path):
+            flash(f'Report non trovato: {report_id}', 'danger')
+            return redirect(url_for('reports'))
+        
+        # Ottieni informazioni sul file
+        file_stats = os.stat(report_path)
+        size_bytes = file_stats.st_size
+        size_str = get_file_size_str(size_bytes)
+        modified_time = datetime.fromtimestamp(file_stats.st_mtime)
+        
+        # Carica il file JSON per estrarre dati per la visualizzazione
+        with open(report_path, 'r') as f:
+            report_data = json.load(f)
+        
+        # Prepara informazioni generali
+        report_info = {
+            'description': report_data.get('description', 'Simulation Report'),
+            'timestamp': report_data.get('timestamp', modified_time.strftime('%Y-%m-%d %H:%M:%S')),
+            'size': size_str
+        }
+        
+        # Prepara statistiche di trading
+        report_stats = prepare_report_stats(report_data)
+        
+        # Prepara dati per il grafico
+        simulation_data = prepare_chart_data(report_data)
+        
+        # Prepara dati di trading
+        trades = prepare_trades_data(report_data)
+        
+        # Simboli disponibili
+        symbols = report_data.get('symbols', [])
+        
+        return render_template('report_visualization.html', 
+                              report_id=report_id,
+                              report_info=report_info,
+                              report_stats=report_stats,
+                              symbols=symbols,
+                              trades=trades,
+                              simulation_data=simulation_data)
+    except Exception as e:
+        logger.error(f"Errore nella visualizzazione del report {report_id}: {e}")
+        flash(f'Si è verificato un errore: {str(e)}', 'danger')
+        return redirect(url_for('reports'))
+
+@app.route('/download_report/<report_id>')
+def download_report(report_id):
+    """Scarica un report specifico"""
+    try:
+        report_path = os.path.join(BASE_DIR, 'reports', f"{report_id}.json")
+        
+        if not os.path.exists(report_path):
+            flash(f'Report non trovato: {report_id}', 'danger')
+            return redirect(url_for('reports'))
+        
+        return send_file(report_path, as_attachment=True)
+    except Exception as e:
+        logger.error(f"Errore nel download del report {report_id}: {e}")
+        flash(f'Si è verificato un errore: {str(e)}', 'danger')
+        return redirect(url_for('reports'))
+
+@app.route('/delete_report/<report_id>', methods=['GET'])
+def delete_report(report_id):
+    """Elimina un report specifico"""
+    try:
+        report_path = os.path.join(BASE_DIR, 'reports', f"{report_id}.json")
+        
+        if not os.path.exists(report_path):
+            flash(f'Report non trovato: {report_id}', 'danger')
+            return redirect(url_for('reports'))
+        
+        os.remove(report_path)
+        flash(f'Report eliminato con successo', 'success')
+        return redirect(url_for('reports'))
+    except Exception as e:
+        logger.error(f"Errore nell'eliminazione del report {report_id}: {e}")
+        flash(f'Si è verificato un errore: {str(e)}', 'danger')
+        return redirect(url_for('reports'))
+
+# Funzioni di utilità per i report
+
+def get_file_size_str(size_bytes):
+    """Converte i byte in una stringa leggibile (KB, MB, etc.)"""
+    if size_bytes < 1024:
+        return f"{size_bytes} B"
+    elif size_bytes < 1024 * 1024:
+        return f"{size_bytes / 1024:.1f} KB"
+    elif size_bytes < 1024 * 1024 * 1024:
+        return f"{size_bytes / (1024 * 1024):.1f} MB"
+    else:
+        return f"{size_bytes / (1024 * 1024 * 1024):.1f} GB"
+
+def get_time_ago(timestamp):
+    """Calcola il tempo trascorso da una data"""
+    now = datetime.now()
+    diff = now - timestamp
+    
+    if diff.days > 365:
+        years = diff.days // 365
+        return f"{years} {'anno' if years == 1 else 'anni'} fa"
+    elif diff.days > 30:
+        months = diff.days // 30
+        return f"{months} {'mese' if months == 1 else 'mesi'} fa"
+    elif diff.days > 0:
+        return f"{diff.days} {'giorno' if diff.days == 1 else 'giorni'} fa"
+    elif diff.seconds // 3600 > 0:
+        hours = diff.seconds // 3600
+        return f"{hours} {'ora' if hours == 1 else 'ore'} fa"
+    elif diff.seconds // 60 > 0:
+        minutes = diff.seconds // 60
+        return f"{minutes} {'minuto' if minutes == 1 else 'minuti'} fa"
+    else:
+        return "poco fa"
+
+def prepare_report_stats(report_data):
+    """Prepara le statistiche di trading dal report"""
+    stats = {}
+    
+    # Estrai statistiche base
+    returns = report_data.get('returns', {})
+    if isinstance(returns, dict):
+        stats['Rendimento Totale'] = f"{returns.get('overall_return', 0) * 100:.2f}%"
+        stats['Rendimento Annualizzato'] = f"{returns.get('annualized_return', 0) * 100:.2f}%"
+        stats['Volatilità'] = f"{returns.get('volatility', 0) * 100:.2f}%"
+        stats['Sharpe Ratio'] = f"{returns.get('sharpe_ratio', 0):.2f}"
+        stats['Max Drawdown'] = f"{returns.get('max_drawdown', 0) * 100:.2f}%"
+    
+    # Estrai metriche di trading
+    metrics = report_data.get('metrics', {})
+    if isinstance(metrics, dict):
+        stats['N. Operazioni'] = metrics.get('total_trades', 0)
+        stats['% Operazioni Vincenti'] = f"{metrics.get('win_rate', 0) * 100:.2f}%"
+        stats['Rapporto Profitto/Perdita'] = f"{metrics.get('profit_loss_ratio', 0):.2f}"
+        stats['Guadagno Medio'] = f"{metrics.get('avg_profit', 0):.2f}"
+        stats['Perdita Media'] = f"{metrics.get('avg_loss', 0):.2f}"
+    
+    return stats
+
+def prepare_trades_data(report_data):
+    """Prepara i dati delle operazioni di trading"""
+    trades_data = report_data.get('trades', [])
+    trades = []
+    
+    if not trades_data:
+        return []
+    
+    for trade in trades_data:
+        trades.append({
+            'date': trade.get('date', 'N/A'),
+            'symbol': trade.get('symbol', 'N/A'),
+            'type': trade.get('type', 'N/A'),
+            'price': f"{trade.get('price', 0):.2f}",
+            'quantity': trade.get('quantity', 0)
+        })
+    
+    return trades
+
+def prepare_chart_data(report_data):
+    """Prepara i dati per i grafici"""
+    chart_data = {}
+    
+    # Ottieni dati OHLCV per ogni simbolo
+    market_data = report_data.get('market_data', {})
+    symbols = report_data.get('symbols', [])
+    
+    for symbol in symbols:
+        symbol_data = market_data.get(symbol, {})
+        if not symbol_data:
+            continue
+            
+        dates = symbol_data.get('dates', [])
+        open_prices = symbol_data.get('open', [])
+        high_prices = symbol_data.get('high', [])
+        low_prices = symbol_data.get('low', [])
+        close_prices = symbol_data.get('close', [])
+        volumes = symbol_data.get('volume', [])
+        
+        # Calcola medie mobili
+        ma20 = calculate_moving_average(close_prices, 20)
+        ma50 = calculate_moving_average(close_prices, 50)
+        ma200 = calculate_moving_average(close_prices, 200)
+        
+        chart_data[symbol] = {
+            'dates': dates,
+            'open': open_prices,
+            'high': high_prices,
+            'low': low_prices,
+            'close': close_prices,
+            'volume': volumes,
+            'ma20': ma20,
+            'ma50': ma50,
+            'ma200': ma200
+        }
+    
+    # Dati del portafoglio
+    portfolio = report_data.get('portfolio', {})
+    if portfolio:
+        chart_data['portfolio'] = {
+            'dates': portfolio.get('dates', []),
+            'equity': portfolio.get('equity', []),
+            'benchmark': portfolio.get('benchmark', [])
+        }
+    
+    return chart_data
+
+def calculate_moving_average(data, window):
+    """Calcola la media mobile"""
+    if not data or len(data) < window:
+        return []
+        
+    result = []
+    for i in range(len(data)):
+        if i < window - 1:
+            result.append(None)
+        else:
+            window_sum = sum(data[i-(window-1):i+1])
+            result.append(window_sum / window)
+            
+    return result
+
+# Aggiungi le nuove route per la gestione dello stato e WebSocket
+@app.route('/api/state/<tab_name>')
+def get_tab_state(tab_name):
+    """Endpoint per recuperare lo stato di una tab"""
+    return jsonify(state_manager.get_tab_state(tab_name))
+
+@app.route('/api/state/<tab_name>', methods=['POST'])
+def update_tab_state(tab_name):
+    """Endpoint per aggiornare lo stato di una tab"""
+    data = request.get_json()
+    state_manager.update_tab_state(tab_name, data)
+    return jsonify({'status': 'success'})
+
+@app.route('/api/data_preview/<symbol>')
+def data_preview(symbol):
+    """Restituisce un'anteprima dei dati per un simbolo specifico"""
+    try:
+        file_path = os.path.join(DATA_DIR, f"{symbol}.csv")
+        if not os.path.exists(file_path):
+            return jsonify({'error': f'File non trovato per il simbolo {symbol}'})
+        
+        # Carica i primi 20 record
+        df = pd.read_csv(file_path, nrows=20)
+        
+        # Prepara i dati per la risposta JSON
+        return jsonify({
+            'columns': df.columns.tolist(),
+            'data': df.values.tolist()
+        })
+    except Exception as e:
+        logger.error(f"Errore nella preview dei dati per {symbol}: {e}")
+        return jsonify({'error': str(e)})
+
+@app.route('/api/delete_data/<symbol>', methods=['DELETE'])
+def delete_data(symbol):
+    """Elimina i dati per un simbolo specifico"""
+    try:
+        file_path = os.path.join(DATA_DIR, f"{symbol}.csv")
+        if not os.path.exists(file_path):
+            return jsonify({'error': f'File non trovato per il simbolo {symbol}'})
+        
+        # Elimina il file
+        os.remove(file_path)
+        logger.info(f"Dati eliminati per il simbolo {symbol}")
+        
+        return jsonify({'message': f'Dati eliminati con successo per {symbol}'})
+    except Exception as e:
+        logger.error(f"Errore nell'eliminazione dei dati per {symbol}: {e}")
+        return jsonify({'error': str(e)})
+
+@app.route('/user_guide')
+def user_guide():
+    """Mostra la guida utente"""
+    try:
+        return render_template('user_guide.html')
+    except Exception as e:
+        logger.error(f"Errore nel caricamento della guida utente: {e}")
+        flash(f'Si è verificato un errore: {str(e)}', 'danger')
+        return redirect(url_for('index'))
+
+# WebSocket events
+@websocket_manager.socketio.on('connect')
+def handle_connect():
+    """Gestisce la connessione WebSocket"""
+    logger.info("Client WebSocket connesso")
+    websocket_manager.emit_dashboard_state(state_manager.get_dashboard_state())
+
+@websocket_manager.socketio.on('disconnect')
+def handle_disconnect():
+    """Gestisce la disconnessione WebSocket"""
+    logger.info("Client WebSocket disconnesso")
+
+@websocket_manager.socketio.on('subscribe')
+def handle_subscribe(data):
+    """Gestisce la sottoscrizione agli eventi"""
+    tab_name = data.get('tab')
+    if tab_name:
+        websocket_manager.subscribe_client(request.sid, tab_name)
+        websocket_manager.emit_tab_state(request.sid, tab_name, state_manager.get_tab_state(tab_name))
+
+@websocket_manager.socketio.on('unsubscribe')
+def handle_unsubscribe(data):
+    """Gestisce l'annullamento della sottoscrizione agli eventi"""
+    tab_name = data.get('tab')
+    if tab_name:
+        websocket_manager.unsubscribe_client(request.sid, tab_name)
+
+if __name__ == '__main__':
+    # Analizza gli argomenti da linea di comando
+    parser = argparse.ArgumentParser(description='Dashboard del sistema di trading algoritmico')
+    parser.add_argument('--port', type=int, default=8081, help='Porta su cui avviare la dashboard')
+    parser.add_argument('--host', type=str, default='127.0.0.1', help='Host su cui avviare la dashboard')
+    parser.add_argument('--debug', action='store_true', help='Attiva la modalità debug')
+    
+    args = parser.parse_args()
+    
+    # Avvia la dashboard
+    logger.info(f"Avvio della dashboard su {args.host}:{args.port} (debug: {args.debug})")
+    websocket_manager.socketio.run(app, host=args.host, port=args.port, debug=args.debug) 

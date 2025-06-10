@@ -39,10 +39,12 @@ class WebSocketManager:
     def emit_update(self, event: str, data: Any):
         """Emette un aggiornamento a tutti i subscriber"""
         try:
+            print(f"DEBUG - WebSocketManager.emit_update(event='{event}') - INIZIO")
             self.socketio.emit(event, {
                 'data': data,
                 'timestamp': datetime.now().isoformat()
             })
+            print(f"DEBUG - WebSocketManager.emit_update - socketio.emit completato")
             
             if event in self.subscribers:
                 for callback in self.subscribers[event]:
@@ -50,10 +52,13 @@ class WebSocketManager:
                         callback(data)
                     except Exception as e:
                         self.logger.error(f"Errore nell'esecuzione del callback per {event}: {e}")
+                        print(f"DEBUG - WebSocketManager.emit_update - Errore nel callback: {e}")
             
             self.logger.info(f"Evento {event} emesso con successo")
+            print(f"DEBUG - WebSocketManager.emit_update - COMPLETATO")
         except Exception as e:
             self.logger.error(f"Errore nell'emissione dell'evento {event}: {e}")
+            print(f"DEBUG - WebSocketManager.emit_update - ERRORE: {e}")
     
     def emit_data_collection_update(self, data: Any):
         """Emette un aggiornamento per il modulo di raccolta dati"""
@@ -61,7 +66,23 @@ class WebSocketManager:
     
     def emit_market_simulation_update(self, data: Any):
         """Emette un aggiornamento per il modulo di simulazione di mercato"""
-        self.emit_update('market_simulation_update', data)
+        print(f"DEBUG - WebSocketManager.emit_market_simulation_update() - status: {data.get('status', 'N/A')}")
+        try:
+            # Emit diretto via SocketIO (senza usare emit_update che potrebbe aver problemi)
+            print(f"DEBUG - EMISSIONE DIRETTA WebSocket: market_simulation_update con status={data.get('status')}")
+            
+            # Invia il dato direttamente a tutti i client
+            self.socketio.emit('market_simulation_update', {
+                'data': data,
+                'timestamp': datetime.now().isoformat()
+            })
+            print(f"DEBUG - EMISSIONE DIRETTA completata")
+            
+            # Log aggiuntivo
+            self.logger.info(f"Evento market_simulation_update emesso direttamente con status {data.get('status', 'N/A')}")
+        except Exception as e:
+            print(f"DEBUG - ERRORE in emit_market_simulation_update: {e}")
+            self.logger.error(f"Errore critico in emit_market_simulation_update: {e}")
     
     def emit_neural_network_update(self, data: Any):
         """Emette un aggiornamento per il modulo di rete neurale"""
@@ -125,4 +146,4 @@ class WebSocketManager:
     def unsubscribe_client(self, client_sid: str, tab_name: str):
         """Annulla la sottoscrizione di un client da una tab specifica"""
         # Qui potremmo rimuovere il client da una stanza specifica per la tab
-        self.logger.info(f"Client {client_sid} non più sottoscritto alla tab {tab_name}") 
+        self.logger.info(f"Client {client_sid} non più sottoscritto alla tab {tab_name}")
