@@ -1,0 +1,9 @@
+streamlit==1.32.0
+plotly==5.19.0
+pandas==2.2.1
+numpy==1.26.4
+requests==2.31.0
+python-dotenv==1.0.1
+streamlit-option-menu==0.3.12
+streamlit-extras==0.3.5
+streamlit-autorefresh==1.0.1 

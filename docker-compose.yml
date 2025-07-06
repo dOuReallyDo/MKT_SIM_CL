@@ -146,6 +146,24 @@ services:
     networks:
       - mkt-sim-network
 
+  # Dashboard UI
+  dashboard-ui:
+    build: ./services/dashboard-ui
+    ports:
+      - "8501:8501"
+    environment:
+      - API_GATEWAY_URL=http://api-gateway:8000
+      - MARKET_SIMULATOR_URL=http://market-simulator:8001
+      - AI_ENGINE_URL=http://ai-engine:8002
+      - DATA_PIPELINE_URL=http://data-pipeline:8003
+    depends_on:
+      - api-gateway
+      - market-simulator
+      - ai-engine
+      - data-pipeline
+    networks:
+      - mkt-sim-network
+
 volumes:
   redis-data:
   influxdb-data:
